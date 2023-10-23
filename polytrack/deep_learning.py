@@ -1,63 +1,47 @@
-import os
-import time
+import os, sys
+# import time
 import cv2
-import random
-import colorsys
 import numpy as np
-import tensorflow as tf
-import pytesseract
-import core.utils as utils
-from core.config import cfg
-import re
-from PIL import Image
-from polytrack.general import cal_dist
 import itertools as it
 import math
-
-# import tensorflow as tf
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-if len(physical_devices) > 0:
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
-tf.config.set_visible_devices(physical_devices[0:1], 'GPU')
-from absl import app, flags, logging
-from absl.flags import FLAGS
-import core.utils as utils
-from core.yolov4 import filter_boxes
-
-from tensorflow.python.saved_model import tag_constants
 from PIL import Image
-from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession
+from ultralytics import YOLO
+
+from polytrack.general import cal_dist
 from polytrack.config import pt_cfg
 
 
-model_weights = './checkpoints/custom-416'
-config = ConfigProto()
-config.gpu_options.allow_growth = True
-session = InteractiveSession(config=config)
-saved_model_loaded = tf.saved_model.load(model_weights, tags=[tag_constants.SERVING])
-infer = saved_model_loaded.signatures['serving_default']
 
 
 
-def dl_detections_process(bboxes):
-    classes = utils.read_class_names(cfg.YOLO.CLASSES)
-    allowed_classes = pt_cfg.POLYTRACK.TRACKING_INSECTS
-    num_classes = len(classes)
+
+
+model = YOLO('./data/best.pt')
+
+
+
+
+def dl_detections_process(output):
+    classes = pt_cfg.POLYTRACK.TRACKING_INSECTS
+    # allowed_classes = pt_cfg.POLYTRACK.TRACKING_INSECTS
+    # num_classes = len(classes)
     _dl_detections = np.zeros(shape=(0,6)) 
-    out_boxes, out_scores, out_classes, num_boxes = bboxes
-    for i in range(num_boxes):
-        if int(out_classes[i]) < 0 or int(out_classes[i]) > num_classes: continue
-        coor = out_boxes[i]
-        score = out_scores[i]
-        class_ind = int(out_classes[i])
+    # out_boxes, out_scores, out_classes, num_boxes = bboxes
+
+    
+
+    for i in range(len(output)):
+        # if int(out_classes[i]) < 0 or int(out_classes[i]) > num_classes: continue
+        coor = output[i][0:4]
+        score = output[i][5]
+        class_ind = int(output[i][4])
         # print(class_ind, classes[class_ind])
         class_name = classes[class_ind]
 
-        if class_name not in allowed_classes:
-            continue
-        else:
-            _dl_detections = np.vstack([_dl_detections,(coor[0], coor[1], coor[2], coor[3], class_name, score)])
+        # if class_name not in allowed_classes:
+        #     continue
+        # else:
+        _dl_detections = np.vstack([_dl_detections,(coor[0], coor[1], coor[2], coor[3], class_name, score)])
 
     return _dl_detections
 
@@ -68,54 +52,65 @@ def map_darkspots(__frame, _dark_spots):
 
     return __frame
 
+# # Write the create_mosaic function to create a mosic image using the classes detected by Deep Learning
+# def create_mosaic(_frame, _detections):
+#     _frame = cv2.cvtColor(_frame, cv2.COLOR_BGR2RGB)
+#     _frame = Image.fromarray(_frame)
+#     _frame = np.array(_frame)
+#     _frame = cv2.cvtColor(_frame, cv2.COLOR_RGB2BGR)
+#     _frame = map_darkspots(_frame, pt_cfg.POLYTRACK.RECORDED_DARK_SPOTS)
 
+#     for _detection in _detections:
+#         _x_TL = int(float(_detection[0]))
+#         _y_TL = int(float(_detection[1]))
+#         _x_BR = int(float(_detection[2]))
+#         _y_BR = int(float(_detection[3]))
+#         _class = _detection[4]
+#         _conf = _detection[5]
+
+#         _frame = cv2.rectangle(_frame, (_x_TL, _y_TL), (_x_BR, _y_BR), (0, 255, 0), 2)
+#         _frame = cv2.putText(_frame, str(_class) + ' ' + str(round(_conf, 2)), (_x_TL, _y_TL - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+#     return _frame
 
 def run_DL(_frame):
 
-    #if pt_cfg.POLYTRACK.DL_DARK_SPOTS: 
-        #dark_spots = pt_cfg.POLYTRACK.RECORDED_DARK_SPOTS
-        #if len(dark_spots): 
-           # _frame = map_darkspots(_frame, dark_spots)
-        #else:
-          #  pass
-  #  else:
-     #   pass
+    # More info: https://docs.ultralytics.com/modes/predict/#inference-arguments
 
-    _frame = cv2.cvtColor(_frame, cv2.COLOR_BGR2RGB)
-    image = Image.fromarray(_frame)
+    results = model.predict(source=_frame, conf=pt_cfg.POLYTRACK.DL_SCORE_THRESHOLD, show=False, verbose = False)
 
-    frame_size = _frame.shape[:2]
-    image_data = cv2.resize(_frame, (cfg.YOLO.INPUT_SIZE, cfg.YOLO.INPUT_SIZE))
-    image_data = image_data / 255.
-    image_data = image_data[np.newaxis, ...].astype(np.float32)
-    
 
-    batch_data = tf.constant(image_data)
-    pred_bbox = infer(batch_data)
-    for key, value in pred_bbox.items():
-        boxes = value[:, :, 0:4]
-        pred_conf = value[:, :, 4:]
+    classes = results[0].boxes.cls
+    conf = results[0].boxes.conf
+    boxes = results[0].boxes.xyxy
 
-    boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-        boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
-        scores=tf.reshape(
-            pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
-        max_output_size_per_class=pt_cfg.POLYTRACK.MAX_OUTPUT_SIZE_PER_CLASS,
-        max_total_size=pt_cfg.POLYTRACK.MAX_TOTAL_SIZE,
-        iou_threshold=pt_cfg.POLYTRACK.DL_IOU_THRESHOLD,
-        score_threshold=pt_cfg.POLYTRACK.DL_SCORE_THRESHOLD
-    )
+    # Create array in the format [xmin, ymin, xmax, ymax, class, confidence]
+    detections = np.zeros((len(classes), 6))
+    detections[:, 0] = boxes[:, 0]
+    detections[:, 1] = boxes[:, 1]
+    detections[:, 2] = boxes[:, 2]
+    detections[:, 3] = boxes[:, 3]
+    detections[:, 4] = classes
+    detections[:, 5] = conf
 
-    # format bounding boxes from normalized ymin, xmin, ymax, xmax ---> xmin, ymin, xmax, ymax
-    original_h, original_w, _ = _frame.shape
-    bboxes = utils.format_boxes(boxes.numpy()[0], original_h, original_w)
+    #use the bounding box coordinates to create a mosaic image and save it to the folder
+    # mosaic = create_mosaic(_frame, detections)
+    # cv2.imwrite(str(pt_cfg.POLYTRACK.OUTPUT) +'mosaic.jpg', mosaic)
+    # print('Mosaic image saved')
 
-    pred_bbox = [bboxes, scores.numpy()[0], classes.numpy()[0], valid_detections.numpy()[0]]
+    # # Show the mosaic image
+    # if pt_cfg.POLYTRACK.SHOW_VIDEO_OUTPUT:
+    #     cv2.imshow('Mosaic', mosaic)
+    #     cv2.waitKey(1)
 
-    # read in all class names from config
-    class_names = utils.read_class_names(cfg.YOLO.CLASSES)
 
-    _detections = dl_detections_process(pred_bbox)
+ 
+   
+
+
+
+
+    _detections = dl_detections_process(detections)
 
     return _detections
 
@@ -126,7 +121,7 @@ def cal_bodyArea_DL(_x_TL,_y_TL,_x_BR,_y_BR):
     return _body_area
 
 
-#Extract the data from result and calculate the center of gravity of the insect
+#Extract the data from result and calculate the center of gravity of the insect. Uses the top left and bottom right coordinates
 def cal_CoG_DL(result): 
     _x_DL, _y_DL, _body_area, _radius  = 0, 0, 0, 0
     _x_TL  = int(float(result[0]))
@@ -227,3 +222,10 @@ def evaluvate_conflict(_conflict_pairs, _insects_inFrame):
     _insects_inFrame = np.delete(_insects_inFrame, to_be_removed, 0)
 
     return _insects_inFrame
+
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__

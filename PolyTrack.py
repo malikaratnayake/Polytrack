@@ -3,8 +3,8 @@ import os
 import time
 import sys
 # comment out below line to enable tensorflow outputs
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from core.functions import *
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# from core.functions import *
 from polytrack.track import track, prepare_to_track
 from polytrack.bg_subtraction import foreground_changes
 from polytrack.record import record_track, complete_tracking, setup_video_save

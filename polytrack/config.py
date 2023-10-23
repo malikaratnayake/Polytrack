@@ -11,14 +11,14 @@ pt_cfg                           = __PT
 # POLYTRACK options
 __PT.POLYTRACK                 = edict()
 
-__PT.POLYTRACK.INPUT          = './data/video/video_24_2.mp4' # File location of the input video file (If only a single video needs to be processed)
-__PT.POLYTRACK.INPUT_DIR      = './data/video/' # Specify the directory of the input video files 
+__PT.POLYTRACK.INPUT          = './data/video/cam_3_N_video_20210308_122000.mp4' # File location of the input video file (If only a single video needs to be processed)
+__PT.POLYTRACK.INPUT_DIR      = './data/video/bees-edge/processed/' # Specify the directory of the input video files 
 # __PT.POLYTRACK.INPUT_DIR      = '/home/mrat0006/bm75_scratch/Sunny_Ridge_March2021/15March2021/Cam_2/converted/'
 #__PT.POLYTRACK.INPUT_DIR      = '/home/mrat0006/bm75/Polytrack/data/video/'
 __PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video type
 __PT.POLYTRACK.CONTINUOUS_VIDEO = True # For processing multiple video files - TRUE, if video files are sequencial
-__PT.POLYTRACK.OUTPUT         = './data/output/' # Output directory
-__PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted from the video file name (defaul setting -> None)
+__PT.POLYTRACK.OUTPUT         = './data/output/bees-edge/' # Output directory
+__PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted frooutputm the video file name (defaul setting -> None)
 __PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (defaul setting -> None)
 __PT.POLYTRACK.INSECT_COUNT = 0 
 
@@ -32,7 +32,7 @@ __PT.POLYTRACK.VIDEO_OUTPUT_SETUP    = False # Initialisation parameter
 #Saving output video and graphs
 __PT.POLYTRACK.VIDEO_WRITER         = 'DIVX' #Set the video writer
 __PT.POLYTRACK.SAVE_TRACK_FRAME     = False #Set TRUE to record a video with insect tracks
-__PT.POLYTRACK.SAVE_VIDEO_OUTPUT    = False #Set TRUE to record output video
+__PT.POLYTRACK.SAVE_VIDEO_OUTPUT    = True #Set TRUE to record output video
 __PT.POLYTRACK.PLOT_GRAPH           = False #Set TRUE to save the insect trajectories as PNGs
 __PT.POLYTRACK.SIGHTING_TIMES       = False #Set TRUE to export a csv with insect sighting times
 
@@ -83,7 +83,7 @@ __PT.POLYTRACK.FILTER_TRACKS_VERIFY_FRAMES = 20 # Number of frames considered fo
 
 
 #Foreground background detection related parameters
-__PT.POLYTRACK.MAX_BG_CHANGES = 50 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
+__PT.POLYTRACK.MAX_BG_CHANGES = 2 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
 __PT.POLYTRACK.MIN_INSECT_AREA = 2 # Minimum area covered by an insect (pixels)
 __PT.POLYTRACK.MAX_INSECT_AREA = 4750 # Maximum area covered by an insect (pixels)
 
@@ -96,7 +96,7 @@ __PT.POLYTRACK.FLOWER_RADIUS_THRESHOLD = 1.2 # Additional area to be considered 
 __PT.POLYTRACK.UPDATE_FLOWER_ANALYSIS = True #Update the flowers.csv with insect visitation analysis
 
 #Tracking flower movement
-__PT.POLYTRACK.FLOWER_UPDATE_FREQUENCY =  1000 # Interval (frames) for updating the flower position
+__PT.POLYTRACK.FLOWER_UPDATE_FREQUENCY =  5 # Interval (frames) for updating the flower position
 __PT.POLYTRACK.FLOWER_MOVEMENT_THRESHOLD = 60 # Maximum distance a flower can move during the update interval. Flower detections beyond this threshold are considered as newly detected flowers.
 
 # Low resolution mode related parameters
@@ -105,7 +105,7 @@ __PT.POLYTRACK.LOWERES_FRAME_HEIGHT = 480 # Frame height for the low resolution 
 
 # Deep Leraning (YOLOv4) related parameters
 __PT.POLYTRACK.TRACKING_INSECTS = ['honeybee', 'flower','hoverfly', 'moth'] #Class labels
-__PT.POLYTRACK.DL_SCORE_THRESHOLD = 0.3 # Minimum confidence for a detection
+__PT.POLYTRACK.DL_SCORE_THRESHOLD = 0.1 # Minimum confidence for a detection
 __PT.POLYTRACK.DL_IOU_THRESHOLD = 0.3 # IoU for a detection
 __PT.POLYTRACK.MAX_TOTAL_SIZE = 50 # Maximum number of detections per frame
 __PT.POLYTRACK.MAX_OUTPUT_SIZE_PER_CLASS = 50 
