@@ -24,9 +24,9 @@ def Extract_cont(_frame,_idle):
     median = cv2.medianBlur(fgmask,9)
     kernel = np.ones((5,5),np.uint8)
     erosion = cv2.erode(median,kernel,iterations = 1)
-    contours, hier = cv2.findContours(erosion, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     
-    #cv2.imshow("bg", erosion)
+    contours, hier = cv2.findContours(erosion, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # Get the bounding boxes
     
 
     return contours
@@ -69,7 +69,7 @@ def filter_contours(_nframe, _contours, _dim_factor):
     
 
 #Detect foreground changes and filter them
-def foreground_changes(_frame, width, height,_nframe, _idle):
+def foreground_changes(_frame ,width, height,_nframe, _idle):
 
     if(_idle):
         _frame_BS = cv2.resize(_frame, (idle_width, idle_height))

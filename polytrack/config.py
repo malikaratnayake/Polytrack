@@ -105,7 +105,7 @@ __PT.POLYTRACK.LOWERES_FRAME_HEIGHT = 480 # Frame height for the low resolution 
 
 # Deep Leraning (YOLOv4) related parameters
 __PT.POLYTRACK.TRACKING_INSECTS = ['honeybee', 'flower','hoverfly', 'moth'] #Class labels
-__PT.POLYTRACK.DL_SCORE_THRESHOLD = 0.1 # Minimum confidence for a detection
+__PT.POLYTRACK.DL_SCORE_THRESHOLD = 0.25 # Minimum confidence for a detection
 __PT.POLYTRACK.DL_IOU_THRESHOLD = 0.3 # IoU for a detection
 __PT.POLYTRACK.MAX_TOTAL_SIZE = 50 # Maximum number of detections per frame
 __PT.POLYTRACK.MAX_OUTPUT_SIZE_PER_CLASS = 50 

@@ -4,6 +4,7 @@ from polytrack.config import pt_cfg
 import os
 import datetime as dt
 import math
+import csv
 
 
 def cal_dist(x,y,px,py):
@@ -190,3 +191,39 @@ def get_tracking_mode(_idle):
         tracking_mode = "High-resolution    "
 
     return tracking_mode
+
+
+# def read_video_info_csv(input_directory):
+#     # Read the video info csv file to get the video details
+#     video_info = pd.read_csv(input_directory + 'video_info.csv', sep=',')
+
+#     # Extract the values in the first column in the csv file to an array
+#     video_info = video_info.iloc[:,0].values
+
+#     # Convert the array to a list
+#     video_info = video_info.tolist()
+
+#     return video_info
+
+def read_video_info_csv(input_directory):
+  csv_file = input_directory + 'video_info.csv'
+
+  with open(csv_file, "r", encoding="utf-8") as csv_file:
+
+    # Create a CSV reader object.
+    csv_reader = csv.reader(csv_file)
+
+    # Skip the header row.
+    # next(csv_reader)
+
+    # Create an empty list to store the values in the first column.
+    first_column_list = []
+
+    # Iterate over the rows in the CSV file.
+    for row in csv_reader:
+
+      # Append the value in the first column to the list.
+      first_column_list.append(int(row[0]))
+
+  # Return the list of values in the first column.
+  return first_column_list

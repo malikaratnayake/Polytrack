@@ -43,6 +43,9 @@ def main(_argv):
 
     video_list = get_video_list(pt_cfg.POLYTRACK.INPUT_DIR, pt_cfg.POLYTRACK.VIDEO_EXT)
 
+    first_in_sequence = read_video_info_csv(pt_cfg.POLYTRACK.INPUT_DIR)
+
+
     for video_name in video_list:
         
         print('===================' + str(video_name) + '===================')
@@ -73,18 +76,65 @@ def main(_argv):
         
         #nframe = 14400
         #vid.set(1, nframe)
-        #if idle: pt_cfg.POLYTRACK.INITIAL_FRAMES = video_start_frame + 150
+        #if idle: pt_cfg.POLYTRACK.INITIAL_FRAMES = video_start_frame + 150c
         #if not flowers_recorded: flowers, flowers_recorded = record_flowers(vid, video_name)
         while True:
             return_value, frame = vid.read()
             if return_value:
                 nframe += 1
+
+                # # Create a mask using the frame
+     
+                # #invert the mask using cv2.bitwise_not
+                # # frame_mask = cv2.bitwise_not(frame_mask)
+
+
+                if nframe in first_in_sequence:
+                    track_flowers(nframe, frame)
+                    memory_frame = frame
+                    process_frame = memory_frame
+                    print(nframe)
+                else:
+                    process_frame0 = cv2.absdiff(frame, memory_frame)
+
+                    # Add the frame to the frame_diff
+                    process_frame = cv2.add(process_frame0, frame)
+                #     # frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                #     # _, frame_mask = cv2.threshold(src=frame_gray, thresh=0, maxval=255, type=cv2.THRESH_BINARY_INV)
+                #     # frame_mask = frame_mask.astype(bool)
+                #     # processing_frame = np.zeros(shape=frame.shape, dtype=np.uint8)
+                #     # processing_frame[frame_mask] = memory_frame[frame_mask]
+                #     # processing_frame = cv2.add(processing_frame, frame)
+                #     processing_frame = cv2.addWeighted(memory_frame, 0.5, frame, 0.5, 0)
+
+                # # Get the difference betweeen the frame and the memory frame
+                # frame_diff = cv2.absdiff(frame, memory_frame)
+
+                # # Add the frame to the frame_diff
+                # frame_diff = cv2.add(frame_diff, frame)
+
+                cv2.imshow('frame', process_frame)
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
                 
                 # if not flowers_recorded: flowers_recorded = record_flowers()
-                if (nframe % pt_cfg.POLYTRACK.FLOWER_UPDATE_FREQUENCY == 0): track_flowers(nframe, frame) #60
+                # if (nframe % pt_cfg.POLYTRACK.FLOWER_UPDATE_FREQUENCY == 0): track_flowers(nframe, frame) #60
 
                 idle = check_idle(nframe, predicted_position)
-                insectsBS =  foreground_changes(frame, width, height, nframe, idle)
+                insectsBS =  foreground_changes(process_frame ,width, height, nframe, idle)
                 associated_det_BS, associated_det_DL, missing,new_insect = track(frame, predicted_position, insectsBS)
                 #print(nframe, new_insect)
                 nframe, idle, new_insect = prepare_to_track(nframe, vid, idle, new_insect, video_start_frame)

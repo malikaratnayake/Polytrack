@@ -43,6 +43,8 @@ def dl_detections_process(output):
         # else:
         _dl_detections = np.vstack([_dl_detections,(coor[0], coor[1], coor[2], coor[3], class_name, score)])
 
+    # print(_dl_detections)
+
     return _dl_detections
 
 
