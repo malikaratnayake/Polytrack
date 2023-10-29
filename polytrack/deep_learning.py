@@ -11,14 +11,8 @@ from polytrack.general import cal_dist
 from polytrack.config import pt_cfg
 
 
-
-
-
-
-
-model = YOLO('./data/best.pt')
-
-
+model = YOLO('./data/yolov8_models/yolov8s_best.pt')
+class_names = model.names
 
 
 def dl_detections_process(output):
@@ -43,7 +37,6 @@ def dl_detections_process(output):
         # else:
         _dl_detections = np.vstack([_dl_detections,(coor[0], coor[1], coor[2], coor[3], class_name, score)])
 
-    # print(_dl_detections)
 
     return _dl_detections
 
@@ -79,7 +72,7 @@ def run_DL(_frame):
 
     # More info: https://docs.ultralytics.com/modes/predict/#inference-arguments
 
-    results = model.predict(source=_frame, conf=pt_cfg.POLYTRACK.DL_SCORE_THRESHOLD, show=False, verbose = False)
+    results = model.predict(source=_frame, conf=pt_cfg.POLYTRACK.DL_SCORE_THRESHOLD, show=False, verbose = False, iou = 0.7)
 
 
     classes = results[0].boxes.cls
@@ -104,6 +97,8 @@ def run_DL(_frame):
     # if pt_cfg.POLYTRACK.SHOW_VIDEO_OUTPUT:
     #     cv2.imshow('Mosaic', mosaic)
     #     cv2.waitKey(1)
+
+    
 
 
  

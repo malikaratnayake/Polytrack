@@ -394,17 +394,22 @@ def evaluate_missing(_nframe, _insect_num):
     #check whether it has left the frame (last appearence in the edge and being missing for more than 15 frames)
     _last_edge_det = last_det_check(_insect_num)
     _missing_frames = _nframe - insect_tracks['nframe'][insect_tracks.loc[insect_tracks['insect_num'] == _insect_num, 'x0'].last_valid_index()]
+
+    # print(_last_edge_det, _missing_frames, _nframe, insect_tracks['nframe'][insect_tracks.loc[insect_tracks['insect_num'] == _insect_num, 'x0'].last_valid_index()], pt_cfg.POLYTRACK.NOISY)
     
-    if ((_last_edge_det==True)&(_missing_frames>max_occlusions_edge)) and not pt_cfg.POLYTRACK.NOISY:
+    if ((_last_edge_det==True) and (_missing_frames>max_occlusions_edge)) and not pt_cfg.POLYTRACK.NOISY:
         _status ='out'
         save_track(_insect_num)
+        # print('out')
         
     elif(_missing_frames>max_occlusions) and not pt_cfg.POLYTRACK.NOISY:
         _status ='out'
         save_track(_insect_num)
+        # print('out---1')
     
     else:
         _status = 'missing'
+        # print('missing')
         
     return _status
     

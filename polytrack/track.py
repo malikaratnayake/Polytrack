@@ -34,17 +34,25 @@ def evaluate_noisy(noisy):
 def track(frame, _predicted_position, _insectsBS):
     _predictions = _predicted_position
     _detections_BS = _insectsBS
+
+    # This was inserted to prevent the program from not detecting insect exits 24/10/2023
+
+    if (len(_insectsBS) <= 10):
+        evaluate_noisy(False)
+    else:
+        evaluate_noisy(True)
+
     
     
     if(len(_insectsBS)<=max_bg_changes):
         _associated_det_BS, _missing_BS, _not_associated_BS = associate_detections_BS(_insectsBS, _predicted_position)
-        evaluate_noisy(False)
+        
 
     else:
         _missing_BS = [i[0] for i in _predicted_position]
         _associated_det_BS = []
         _not_associated_BS  =[]
-        evaluate_noisy(True)
+        
 
     #print(pt_cfg.POLYTRACK.NOISY)
          

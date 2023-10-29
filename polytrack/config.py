@@ -53,7 +53,7 @@ __PT.POLYTRACK.FRAME_COUNT= 300 # Automatically updated by the algorithm.
 
 #Tracking related paremeters
 __PT.POLYTRACK.EDGE_PIXELS = 40 # Defines the thickness of the border of the video. If an insect disappears outside the border, Polytrack considers the insect has left the frame. 
-__PT.POLYTRACK.MAX_OCCLUSIONS = 60 #Threshold number of undetected frames (previously 60). Polytrack considers an insect has left the frame if it has not been detected for a consecutive MAX_OCCLUSIONS frame.
+__PT.POLYTRACK.MAX_OCCLUSIONS = 150 #Threshold number of undetected frames (previously 60). Polytrack considers an insect has left the frame if it has not been detected for a consecutive MAX_OCCLUSIONS frame.
 __PT.POLYTRACK.CLEAR_FRAMES = 0 # Automatically updated by the algorithm.
 __PT.POLYTRACK.CLEAR_FRAMES_THRESH = 5 # Maximum number of insect-like foreground changes allowed for use of background subtraction (If no of changes > threshold; YOLOv4 will be used for the detection/verification)
 __PT.POLYTRACK.NOISY = False # Automatically updated by the algorithm.
@@ -83,7 +83,7 @@ __PT.POLYTRACK.FILTER_TRACKS_VERIFY_FRAMES = 20 # Number of frames considered fo
 
 
 #Foreground background detection related parameters
-__PT.POLYTRACK.MAX_BG_CHANGES = 2 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
+__PT.POLYTRACK.MAX_BG_CHANGES = 1 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
 __PT.POLYTRACK.MIN_INSECT_AREA = 2 # Minimum area covered by an insect (pixels)
 __PT.POLYTRACK.MAX_INSECT_AREA = 4750 # Maximum area covered by an insect (pixels)
 
@@ -105,7 +105,7 @@ __PT.POLYTRACK.LOWERES_FRAME_HEIGHT = 480 # Frame height for the low resolution 
 
 # Deep Leraning (YOLOv4) related parameters
 __PT.POLYTRACK.TRACKING_INSECTS = ['honeybee', 'flower','hoverfly', 'moth'] #Class labels
-__PT.POLYTRACK.DL_SCORE_THRESHOLD = 0.25 # Minimum confidence for a detection
+__PT.POLYTRACK.DL_SCORE_THRESHOLD = 0.15 # Minimum confidence for a detection
 __PT.POLYTRACK.DL_IOU_THRESHOLD = 0.3 # IoU for a detection
 __PT.POLYTRACK.MAX_TOTAL_SIZE = 50 # Maximum number of detections per frame
 __PT.POLYTRACK.MAX_OUTPUT_SIZE_PER_CLASS = 50 

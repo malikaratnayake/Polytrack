@@ -218,12 +218,56 @@ def read_video_info_csv(input_directory):
 
     # Create an empty list to store the values in the first column.
     first_column_list = []
+    second_column_list = []
+    third_column_list = []
 
     # Iterate over the rows in the CSV file.
     for row in csv_reader:
 
       # Append the value in the first column to the list.
       first_column_list.append(int(row[0]))
+      second_column_list.append(int(row[1]))
+      if row[2] != '':
+
+        third_column_list.append(int(row[2]))
+
+
+  
+
+  
 
   # Return the list of values in the first column.
-  return first_column_list
+  return third_column_list, second_column_list, first_column_list
+
+
+import cv2
+
+def remove_black_borders(frame):
+  """Removes black borders from a video frame.
+
+  Args:
+    frame: A numpy array representing the video frame.
+
+  Returns:
+    A numpy array representing the video frame with the black borders removed.
+  """
+
+  # Convert the frame to grayscale.
+  gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+  # Find the threshold value that separates the black borders from the rest of the image.
+  thresh = cv2.threshold(gray, 2, 255, cv2.THRESH_BINARY)[1]
+
+  cv2.imshow('thresh', thresh)
+
+  # Find the contours of the black borders.
+  contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+  # Draw a rectangle around the largest contour.
+  x, y, w, h = cv2.boundingRect(max(contours, key=cv2.contourArea))
+  print(x, y, w, h)
+
+  # Crop the frame to remove the black borders.
+  frame = frame[y:y + h, x:x + w]
+
+  return frame
