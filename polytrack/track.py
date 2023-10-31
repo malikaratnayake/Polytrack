@@ -3,11 +3,12 @@ from polytrack.general import cal_dist, check_sight_coordinates
 # import polytrack.bg_subtraction as polytrack_bgs
 import itertools as it
 from scipy.optimize import linear_sum_assignment
-from polytrack.deep_learning import detect_deep_learning
+# from polytrack.tracker import detect_deep_learning
+from polytrack.tracker import DL_Detections
 from polytrack.config import pt_cfg
 
 
-
+DL_Detections = DL_Detections()
 
 
 max_dist_bs = pt_cfg.POLYTRACK.MAX_DIST_BS #Maximum detection threshold for background subtraction-based detection
@@ -65,7 +66,8 @@ def track(frame, _predicted_position, _insectsBS):
         for pred in np.arange(len(_missing_BS)):
             _predictions_DL = np.vstack([_predictions_DL,([row for row in _predictions if _missing_BS[pred] == row[0]])])
             
-        _detections_DL = detect_deep_learning(frame)
+        # _detections_DL = detect_deep_learning(frame)
+        _detections_DL = DL_Detections.get_deep_learning_detection(frame, False)
         
         _associated_det_DL, _missing, _pot_new_insect = associate_detections_DL(_detections_DL, _predictions_DL, max_dist_dl)
         _new_insect = verify_new_insect(_pot_new_insect,_associated_det_BS)
@@ -179,9 +181,11 @@ def low_confident_ass(_detections, _predictions,_max_dist_dl,_dist,bs_mode):
 #not associated = when there are more detections than predictions
 #missing = when there are less detections than predictions. 1) less number of insects detected, 2) detected insects cannot be associated with a detection
 def associate_detections_BS(_detections, _predictions):
+    # print(_detections, "det" ,_predictions)
     _assignments = Hungarian_method(_detections, _predictions)
     _missing = []
     _insects = [i[0] for i in _predictions]
+    # print(_insects, (_assignments[len(_insects):]) )
     _not_associated = np.zeros(shape=(0,3))
     for _nass in (_assignments[len(_insects):]):
         _not_associated = np.vstack([_not_associated,(_detections[_nass])])       
@@ -189,6 +193,7 @@ def associate_detections_BS(_detections, _predictions):
     _associations_BS = np.zeros(shape=(0,4))
     for ass in np.arange(len(_insects)):
         _record = _assignments[ass]
+        print(_assignments, ass, _record, len(_detections), _record <= len(_detections)-1)
         if (_record <= len(_detections)-1):
             _xc, _yc, _area = _detections[_assignments[ass]][0],_detections[_assignments[ass]][1],_detections[_assignments[ass]][2]
             _dist = cal_dist(_xc,_yc,_predictions[ass][1],_predictions[ass][2])
@@ -199,6 +204,9 @@ def associate_detections_BS(_detections, _predictions):
                 _associations_BS = np.vstack([_associations_BS,(int(float(_predictions[ass][0])),int(_xc), int(_yc), int(_area))])
         else:
             _missing.append(_predictions[ass][0])
+            print("here")
+
+    # print(_associations_BS)
 
     return _associations_BS, _missing,_not_associated
 

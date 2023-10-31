@@ -4,7 +4,7 @@ import colorsys
 import numpy as np
 import pandas as pd
 from polytrack.config import pt_cfg
-from polytrack.deep_learning import detect_deep_learning
+from polytrack.tracker import detect_deep_learning
 from polytrack.record import track_frame
 from polytrack.track import associate_detections_DL, Hungarian_method
 from polytrack.general import cal_dist, assign_datapoint_name

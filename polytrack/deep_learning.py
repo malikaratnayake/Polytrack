@@ -15,6 +15,108 @@ model = YOLO('./data/yolov8_models/yolov8s_best.pt')
 class_names = model.names
 
 
+class DL_Detections:
+    def __init__(self) -> None:
+        self.confidence = pt_cfg.POLYTRACK.DL_SCORE_THRESHOLD
+        self.iou_threshold = 0.7
+        self.flower_class = self.__get_classes_to_detect(detect_flowers=True)
+        self.insect_classes = self.__get_classes_to_detect(detect_flowers=False)
+
+        
+        return None
+
+    def __run_deep_learning(self, _frame, detect_flowes: bool) -> np.ndarray:
+
+        # More info: https://docs.ultralytics.com/modes/predict/#inference-arguments
+
+        if detect_flowes:
+            classes_to_detect = self.flower_class
+        else:
+            classes_to_detect = self.insect_classes
+
+        results = model.predict(source=_frame, conf=pt_cfg.POLYTRACK.DL_SCORE_THRESHOLD, show=False, verbose = False, iou = 0.25, classes = classes_to_detect)
+
+
+        classes = results[0].boxes.cls
+        conf = results[0].boxes.conf
+        boxes = results[0].boxes.xyxy
+
+        # Create array in the format [xmin, ymin, xmax, ymax, class, confidence]
+        detections = np.zeros((len(classes), 6))
+        detections[:, 0] = boxes[:, 0]
+        detections[:, 1] = boxes[:, 1]
+        detections[:, 2] = boxes[:, 2]
+        detections[:, 3] = boxes[:, 3]
+        detections[:, 4] = classes
+        detections[:, 5] = conf
+
+        return detections
+
+    def __get_classes_to_detect(self, detect_flowers: bool) -> list:
+
+        _class_list = []
+
+        if detect_flowers:
+            # _class_list = [key for key in class_names]
+            _class_list = [1]
+        else:
+            for key, value in class_names.items():
+                if value != 'flower':
+                    _class_list.append(key)
+        
+        return _class_list
+    
+
+    def get_deep_learning_detection(self, _frame, detect_flowers: bool) -> np.ndarray:
+
+        _detections = self.__run_deep_learning(_frame, detect_flowers)
+
+        if detect_flowers:
+            processed_detections = self.__process_flower_results(_detections)
+        else:
+            processed_detections = self.__process_insect_results(_detections)
+
+        return processed_detections
+    
+    def __process_flower_results(self, _results: np.ndarray) -> np.ndarray:
+        # Get the center of gravity of the detected flower and radius of the bounding circle
+        _flower_detection = np.zeros(shape=(0,5)) #(create an array to store data x,y,area, conf, type)
+
+        for result in _results:
+            mid_x = int((result[0] + result[2])/2)
+            mid_y = int((result[1] + result[3])/2)
+            radius = int(cal_dist(result[0], result[1], mid_x, mid_y)*math.cos(math.radians(45)))
+            _flower_detection = np.vstack([_flower_detection,(float(mid_x), float(mid_y), float(radius), result[4], result[5])])
+
+        return _flower_detection
+    
+    def __process_insect_results(self, _results: np.ndarray) -> np.ndarray:
+        _insect_detection = np.zeros(shape=(0,5))
+
+        for result in _results:
+            mid_x = int((result[0] + result[2])/2)
+            mid_y = int((result[1] + result[3])/2)
+            area = abs((result[0] - result[2])*(result[1] - result[3]))
+            _insect_detection = np.vstack([_insect_detection,(float(mid_x), float(mid_y), float(area), result[4], result[5])])
+
+        return _insect_detection
+    
+
+
+        
+
+
+
+
+
+
+
+    
+
+
+
+
+
 def dl_detections_process(output):
     classes = pt_cfg.POLYTRACK.TRACKING_INSECTS
     # allowed_classes = pt_cfg.POLYTRACK.TRACKING_INSECTS

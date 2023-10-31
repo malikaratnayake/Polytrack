@@ -11,6 +11,7 @@ from polytrack.record import record_track, complete_tracking, setup_video_save
 from polytrack.config import pt_cfg
 from polytrack.flowers import record_flowers, track_flowers, save_flowers
 from polytrack.general import *
+from polytrack.tracker import  InsectTracker
 import cv2
 import numpy as np
 # import warnings; warnings.simplefilter('ignore')
@@ -24,6 +25,9 @@ flags.DEFINE_string('extension', pt_cfg.POLYTRACK.VIDEO_EXT, 'Video extension of
 flags.DEFINE_string('output', pt_cfg.POLYTRACK.OUTPUT, 'path to output folder')
 flags.DEFINE_boolean('show_video', pt_cfg.POLYTRACK.SHOW_VIDEO_OUTPUT, 'Show video output')
 #flags.DEFINE_boolean('save_video', pt_cfg.POLYTRACK.SAVE_VIDEO_OUTPUT, 'Save video output')
+
+
+TrackInsect = InsectTracker(pt_cfg.POLYTRACK.INPUT_DIR)
 
 def main(_argv):
     start_time = datetime.now()
@@ -43,7 +47,8 @@ def main(_argv):
 
     video_list = get_video_list(pt_cfg.POLYTRACK.INPUT_DIR, pt_cfg.POLYTRACK.VIDEO_EXT)
 
-    complete_frame, actual_frame_num, frame_in_video = read_video_info_csv(pt_cfg.POLYTRACK.INPUT_DIR)
+    # complete_frame, actual_frame_num, frame_in_video = read_video_info_csv(pt_cfg.POLYTRACK.INPUT_DIR)
+    complete_frame, actual_frame_num, frame_in_video = TrackInsect.get_video_info(pt_cfg.POLYTRACK.INPUT_DIR)
 
 
     for video_name in video_list:
@@ -84,14 +89,20 @@ def main(_argv):
             return_value, frame = vid.read()
             if return_value:
                 nframe += 1
+
+                
+                act_nframe = TrackInsect.map_frame_number(nframe)
+                # insectsBS = TrackInsect.get_detections(frame, nframe)
+
+                # print(insectsBS)
                 
 
-                if nframe in frame_in_video:
-                    position = frame_in_video.index(nframe)
-                    # Get the actual frame number from the actual_frame_num list
-                    act_nframe = actual_frame_num[position]
-                else:
-                    act_nframe += 1
+                # if nframe in frame_in_video:
+                #     position = frame_in_video.index(nframe)
+                #     # Get the actual frame number from the actual_frame_num list
+                #     act_nframe = actual_frame_num[position]
+                # else:
+                #     act_nframe += 1
 
 
                 if nframe in complete_frame:
@@ -99,11 +110,11 @@ def main(_argv):
                   
 
                     track_flowers(act_nframe, frame)
-                    memory_frame = frame
-                    bg_sub_frame = memory_frame
-                else:
-                    # Add the frame to the frame_diff
-                    bg_sub_frame = cv2.add(cv2.absdiff(frame, memory_frame), frame)
+                #     memory_frame = frame
+                #     bg_sub_frame = memory_frame
+                # else:
+                #     # Add the frame to the frame_diff
+                #     bg_sub_frame = cv2.add(cv2.absdiff(frame, memory_frame), frame)
 
     
 
@@ -120,9 +131,12 @@ def main(_argv):
                 # if (nframe % pt_cfg.POLYTRACK.FLOWER_UPDATE_FREQUENCY == 0): track_flowers(nframe, frame) #60
                 idle = False # Force the idle mode off
                 # idle = check_idle(nframe, predicted_position)
-                insectsBS =  foreground_changes(bg_sub_frame ,width, height, act_nframe, idle)
-                associated_det_BS, associated_det_DL, missing,new_insect = track(frame, predicted_position, insectsBS)
-                #print(nframe, new_insect)
+                # insectsBS =  BS_Detector.get_bs_detection(bg_sub_frame)
+                # insectsBS =  foreground_changes(bg_sub_frame ,width, height, act_nframe, idle)
+
+                # associated_det_BS, associated_det_DL, missing,new_insect = track(frame, predicted_position, insectsBS)
+                associated_det_BS, associated_det_DL, missing,new_insect = TrackInsect.track(frame, nframe,  predicted_position)
+                # print(nframe, act_nframe,associated_det_BS, associated_det_DL, missing,new_insect)
                 
                 act_nframe, idle, new_insect = prepare_to_track(act_nframe, vid, idle, new_insect, video_start_frame)
                 for_predictions = record_track(frame, act_nframe,associated_det_BS, associated_det_DL, missing, new_insect, idle)

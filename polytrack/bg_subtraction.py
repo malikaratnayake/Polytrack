@@ -82,6 +82,8 @@ def foreground_changes(_frame ,width, height,_nframe, _idle):
     _contours = Extract_cont(_frame_BS, _idle)
     insects = filter_contours(_nframe, _contours, _dim_factor)
 
+    print(insects)
+
     
     return insects
 
