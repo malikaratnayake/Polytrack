@@ -24,7 +24,7 @@ __PT.POLYTRACK.INSECT_COUNT = 0
 
 #Displaying output video
 __PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
-__PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = False # Set TRUE to display output video. Insect tracks superimposed on the video.
+__PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = True # Set TRUE to display output video. Insect tracks superimposed on the video.
 __PT.POLYTRACK.VIDEO_OUTPUT_WIDTH    = 1280 # Width of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_HEIGHT   = 720 # Height of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_SETUP    = False # Initialisation parameter
