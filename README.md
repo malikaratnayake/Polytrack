@@ -1,12 +1,17 @@
-# Polytrack 2.0
+# Polytrack
 
 ## Introduction
 
-Polytrack 2.0 is designed to track multiple species of insect pollinators in complex dynamic environments and to monitor their pollination behaviour. It uses a combination of foreground-background segmentation (KNN background subtractor) and deep learning-based detection (YOLOv4) for tracking. Polytrack is capable of indentifying and recording insect-flower interactions for pollination monitoring.  
+Polytrack is designed to track multiple species of insect pollinators in complex dynamic environments and to monitor their pollination behaviour. It uses a combination of foreground-background segmentation and deep learning-based object detection for tracking. Polytrack is capable of indentifying and recording insect-flower interactions for pollination monitoring.  
+
+> ### New in this version:
+> - Ultralytics YOLOv8 based object detection model for improved tracking and easier implementation.
+> - Ability to reconstruct tracks from motion compression based videos.
+> - Simplified workflow.
 
 ## Dependencies
 
-Dependencies related to this code is provided in requirements-cpu.txt and requirements-gpu.txt files.
+Polytrack uses OpenCV for image processing and Ultralytics YOLOv8 for deep learning-based object detection. Dependencies related to this code is provided in requirements.txt and environment_polytrack.yml files.
 
 ## Pre-trained weights for YOLOv4
 
