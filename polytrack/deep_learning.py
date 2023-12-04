@@ -174,7 +174,7 @@ def run_DL(_frame):
 
     # More info: https://docs.ultralytics.com/modes/predict/#inference-arguments
 
-    results = model.predict(source=_frame, conf=pt_cfg.POLYTRACK.DL_SCORE_THRESHOLD, show=False, verbose = False, iou = 0.7)
+    results = model.predict(source=_frame, conf=pt_cfg.POLYTRACK.YOLOV8_CONFIDENCE, show=False, verbose = False, iou = 0.7)
 
 
     classes = results[0].boxes.cls

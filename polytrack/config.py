@@ -11,13 +11,14 @@ pt_cfg                           = __PT
 # POLYTRACK options
 __PT.POLYTRACK                 = edict()
 
-__PT.POLYTRACK.INPUT          = './data/video/cam_3_N_video_20210308_122000.mp4' # File location of the input video file (If only a single video needs to be processed)
+__PT.POLYTRACK.INPUT          = './data/video/cam_3_N_video_20210308_122000' # File location of the input video file (If only a single video needs to be processed)
 __PT.POLYTRACK.INPUT_DIR      = './data/video/bees-edge/processed/' # Specify the directory of the input video files 
+__PT.POLYTRACK.COMPRESSED_VIDEO  = True
 # __PT.POLYTRACK.INPUT_DIR      = '/home/mrat0006/bm75_scratch/Sunny_Ridge_March2021/15March2021/Cam_2/converted/'
 #__PT.POLYTRACK.INPUT_DIR      = '/home/mrat0006/bm75/Polytrack/data/video/'
 __PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video type
 __PT.POLYTRACK.CONTINUOUS_VIDEO = True # For processing multiple video files - TRUE, if video files are sequencial
-__PT.POLYTRACK.OUTPUT         = './data/output/bees-edge/' # Output directory
+__PT.POLYTRACK.OUTPUT         = './data/output/unprocessed_out/' # Output directory
 __PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted frooutputm the video file name (defaul setting -> None)
 __PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (defaul setting -> None)
 __PT.POLYTRACK.INSECT_COUNT = 0 
@@ -105,7 +106,9 @@ __PT.POLYTRACK.LOWERES_FRAME_HEIGHT = 480 # Frame height for the low resolution 
 
 # Deep Leraning (YOLOv4) related parameters
 __PT.POLYTRACK.TRACKING_INSECTS = ['honeybee', 'flower','hoverfly', 'moth'] #Class labels
-__PT.POLYTRACK.DL_SCORE_THRESHOLD = 0.15 # Minimum confidence for a detection
-__PT.POLYTRACK.DL_IOU_THRESHOLD = 0.3 # IoU for a detection
+__PT.POLYTRACK.YOLOV8_CONFIDENCE = 0.15 # Minimum confidence for a detection
+__PT.POLYTRACK.NEW_INSECT_CONFIDENCE = 0.7 # Non-maximum suppression threshold
+__PT.POLYTRACK.DL_IOU_THRESHOLD = 0.2 # IoU for a detection
+__PT.POLYTRACK.BS_DL_IOU_THRESHOLD = 0.01 # IoU for a detection
 __PT.POLYTRACK.MAX_TOTAL_SIZE = 50 # Maximum number of detections per frame
 __PT.POLYTRACK.MAX_OUTPUT_SIZE_PER_CLASS = 50 

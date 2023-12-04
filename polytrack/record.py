@@ -260,7 +260,7 @@ def record_BS_detections(_nframe, details_frame, _associated_det_BS):
         
         if output_video:
             cv2.circle(track_frame, (_x, _y), 3, track_colour(_insect_num), 2)
-            cv2.putText(details_frame, str(_species)+' ' + str(_insect_num)+' BS', (_x+20, _y+20), cv2.FONT_HERSHEY_DUPLEX , 0.7, track_colour(_insect_num), 1, cv2.LINE_AA) 
+            cv2.putText(details_frame, str(pt_cfg.POLYTRACK.TRACKING_INSECTS[int(_species)])+' ' + str(_insect_num)+' BS', (_x+20, _y+20), cv2.FONT_HERSHEY_DUPLEX , 0.7, track_colour(_insect_num), 1, cv2.LINE_AA) 
 
         
         insect_record_BS = [_nframe, _insect_num, _x, _y, _area, _species, _confidence, _status, _model,_flower, _visit_number]
@@ -356,14 +356,14 @@ def record_new_insect(_frame,_nframe, _new_insect):
             _model = 'DL'
             _flower = check_on_flower([_x,_y])
             _visit_number = np.nan if np.isnan(_flower) else 1
+
             
             # _, _ = update_analysis(_nframe, _insect_num, [_x,_y], insect_tracks)
-            #print(_nframe,_insect_num, _x, _y,_species,_confidence)
-            manual_verification(_frame,_insect_num, _x, _y,_species,_confidence)
+            manual_verification(_frame,_insect_num, _x, _y,pt_cfg.POLYTRACK.TRACKING_INSECTS[int(_species)],_confidence)
             
             if output_video:
                 cv2.circle(track_frame, (int(float(_x)), int(float(_y))), 4, track_colour(_insect_num), 4)
-                cv2.putText(track_frame, str(_species)+' ' + str(_insect_num), (_x+20, _y+20), cv2.FONT_HERSHEY_DUPLEX , 0.7, track_colour(_insect_num), 1, cv2.LINE_AA) 
+                cv2.putText(track_frame, str(pt_cfg.POLYTRACK.TRACKING_INSECTS[int(_species)])+' ' + str(_insect_num), (_x+20, _y+20), cv2.FONT_HERSHEY_DUPLEX , 0.7, track_colour(_insect_num), 1, cv2.LINE_AA) 
 
             insect_record_new = [_nframe, _insect_num, _x, _y, _area, _species, _confidence, _status, _model,_flower, _visit_number]
             insect_tracks.loc[len(insect_tracks)] = insect_record_new
@@ -418,8 +418,9 @@ def save_track(_insect_num):
 
     _insect_track = insect_tracks.loc[insect_tracks['insect_num'] == _insect_num].reset_index()
     #_insect_track = _insect_track[:_insect_track['x0'].last_valid_index()+1]
-    _species = insect_tracks['species'][insect_tracks.loc[insect_tracks['insect_num'] == _insect_num, 'confidence'].idxmax()]
+    _species_num = insect_tracks['species'][insect_tracks.loc[insect_tracks['insect_num'] == _insect_num, 'confidence'].idxmax()]
     _insect_track.insert(6,'y_adj', (height-_insect_track['y0']) if pt_cfg.POLYTRACK.FACING_NORTH else _insect_track['y0'])
+    _species = pt_cfg.POLYTRACK.TRACKING_INSECTS[int(_species_num)]
     _insectname = str(_species)+'_'+str(_insect_num)
 
     if pt_cfg.POLYTRACK.FILTER_TRACKS:

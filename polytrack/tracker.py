@@ -1,14 +1,11 @@
 import os, sys
-# import time
 import cv2
 import numpy as np
-import itertools as it
 import math
-from PIL import Image
 from ultralytics import YOLO
 import csv
 from scipy.optimize import linear_sum_assignment
-import json
+from polytrack.config import pt_cfg
 
 from polytrack.general import cal_dist
 
@@ -16,62 +13,10 @@ from polytrack.general import cal_dist
 model = YOLO('./data/yolov8_models/yolov8s_best.pt')
 class_names = model.names
 
-class Config:
-    """
-    A class to store configuration parameters for the PolyTrack object tracker.
-
-    Attributes:
-        yolov8_confidence (float): Confidence threshold for YOLOv8 object detection.
-        new_insect_confidence (float): Confidence threshold for detecting new insects.
-        yolov8_iou_threshold (float): Intersection over union threshold for YOLOv8 object detection.
-        bs_dl_iou_threshold (float): Intersection over union threshold for background subtraction and deep learning object detection.
-        bs_max_interframe_distance (int): Maximum distance between object centroids for background subtraction object tracking.
-        dl_max_interframe_distance (int): Maximum distance between object centroids for deep learning object tracking.
-        knn_min_blob_area (int): Minimum blob area for KNN object tracking.
-        knn_max_blob_area (int): Maximum blob area for KNN object tracking.
-    """
-    def __init__(
-        self,
-        yolov8_confidence: float,
-        new_insect_confidence: float,
-        yolov8_iou_threshold: float,
-        bs_dl_iou_threshold: float,
-        bs_max_interframe_distance: int,
-        dl_max_interframe_distance: int,
-        knn_min_blob_area: int,
-        knn_max_blob_area: int
-    ) -> None:
-        """
-        Initializes a Config object with the specified parameters.
-
-        Args:
-            yolov8_confidence (float): Confidence threshold for YOLOv8 object detection.
-            new_insect_confidence (float): Confidence threshold for detecting new insects.
-            yolov8_iou_threshold (float): Intersection over union threshold for YOLOv8 object detection.
-            bs_dl_iou_threshold (float): Intersection over union threshold for background subtraction and deep learning object detection.
-            bs_max_interframe_distance (int): Maximum distance between object centroids for background subtraction object tracking.
-            dl_max_interframe_distance (int): Maximum distance between object centroids for deep learning object tracking.
-            knn_min_blob_area (int): Minimum blob area for KNN object tracking.
-            knn_max_blob_area (int): Maximum blob area for KNN object tracking.
-        """
-        self.yolov8_confidence = yolov8_confidence
-        self.new_insect_confidence = new_insect_confidence
-        self.yolov8_iou_threshold = yolov8_iou_threshold
-        self.bs_dl_iou_threshold = bs_dl_iou_threshold
-        self.bs_max_interframe_distance = bs_max_interframe_distance
-        self.dl_max_interframe_distance = dl_max_interframe_distance
-        self.knn_min_blob_area = knn_min_blob_area
-        self.knn_max_blob_area = knn_max_blob_area
-
-
-with open('./polytrack/config.json', "r") as f:
-    __config_dict = json.load(f)
-    CONFIG = Config(**__config_dict)
-
 
 class DL_Detections():
-    yolov8_confidence = CONFIG.yolov8_confidence
-    iou_threshold = CONFIG.yolov8_iou_threshold
+    yolov8_confidence = pt_cfg.POLYTRACK.YOLOV8_CONFIDENCE
+    iou_threshold = pt_cfg.POLYTRACK.DL_IOU_THRESHOLD
 
     def __init__(self) -> None:
         # Config.__init__(self, './polytrack/config.json')
@@ -162,7 +107,7 @@ class DL_Detections():
             mid_x = int((result[0] + result[2])/2)
             mid_y = int((result[1] + result[3])/2)
             radius = int(cal_dist(result[0], result[1], mid_x, mid_y)*math.cos(math.radians(45)))
-            _flower_detection = np.vstack([_flower_detection,(float(mid_x), float(mid_y), float(radius), result[4], result[5])])
+            _flower_detection = np.vstack([_flower_detection,(int(mid_x), int(mid_y), int(radius), result[4], result[5])])
 
         return _flower_detection
     
@@ -181,9 +126,9 @@ class DL_Detections():
 
 class BS_Detections:
     # fgbg = cv2.createBackgroundSubtractorKNN()
-    min_area = CONFIG.knn_min_blob_area
-    max_area = CONFIG.knn_max_blob_area
-    new_insect_confidence = CONFIG.new_insect_confidence
+    min_area = pt_cfg.POLYTRACK.MIN_INSECT_AREA
+    max_area = pt_cfg.POLYTRACK.MAX_INSECT_AREA
+    new_insect_confidence = pt_cfg.POLYTRACK.NEW_INSECT_CONFIDENCE
 
     def __init__(self) -> None:
 
@@ -199,14 +144,20 @@ class BS_Detections:
 
         return _detections
     
+    def process_fgbg_output(self, _fgmask) -> np.ndarray:
+        _median = cv2.medianBlur(_fgmask,9)
+        _kernel = np.ones((5,5),np.uint8)
+        _processed_frame = cv2.erode(_median,_kernel,iterations = 1)
+
+        return _processed_frame
+
+    
     def __run_bs(self, _frame) -> np.ndarray:
 
         _fgmask = self.fgbg.apply(_frame)
 
-        _median = cv2.medianBlur(_fgmask,9)
-        _kernel = np.ones((5,5),np.uint8)
-        _processed_frame = cv2.erode(_median,_kernel,iterations = 1)
-    
+        _processed_frame = self.process_fgbg_output(_fgmask)
+
         _contours, _ = cv2.findContours(_processed_frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         return _contours
@@ -231,10 +182,10 @@ class BS_Detections:
 
 class InsectTracker(DL_Detections, BS_Detections):
 
-    bs_max_interframe_distance = CONFIG.bs_max_interframe_distance
-    dl_max_interframe_distance = CONFIG.dl_max_interframe_distance
-    new_insect_condidence = CONFIG.new_insect_confidence
-    bs_dl_iou_threshold = CONFIG.bs_dl_iou_threshold
+    bs_max_interframe_distance = pt_cfg.POLYTRACK.MAX_DIST_BS
+    dl_max_interframe_distance = pt_cfg.POLYTRACK.MAX_DIST_DL
+    new_insect_condidence = pt_cfg.POLYTRACK.NEW_INSECT_CONFIDENCE
+    bs_dl_iou_threshold = pt_cfg.POLYTRACK.BS_DL_IOU_THRESHOLD
 
     def __init__(self, video_info_filepath: str) -> None:
         DL_Detections.__init__(self)
@@ -244,30 +195,40 @@ class InsectTracker(DL_Detections, BS_Detections):
         self.last_full_frame = None
         self.last_bs_associated_detections = None
         self.video_info_filepath = video_info_filepath
-        self.video_frame_num, self.actual_frame_num, self.full_frame_num = self.get_video_info(self.video_info_filepath)
-        self.actual_nframe = self.actual_frame_num[0]
+        self.compressed_video = pt_cfg.POLYTRACK.COMPRESSED_VIDEO
+        if self.compressed_video:
+            self.video_frame_num, self.actual_frame_num, self.full_frame_num = self.get_video_info(self.video_info_filepath)
+            self.actual_nframe = self.actual_frame_num[0]
+        else:
+            pass
 
 
     @staticmethod
     def get_video_info(_video_info_filepath:str) -> tuple:
 
-        csv_file = str(_video_info_filepath) + 'video_info.csv'
+        try:
 
-        with open(csv_file, "r", encoding="utf-8") as csv_file:
-            csv_reader = csv.reader(csv_file)
+            csv_file = str(_video_info_filepath) + 'video_info.csv'
 
-            _video_frame_number_list = []
-            _actual_frame_number_list = []
-            _full_frame_number_list = []
+            with open(csv_file, "r", encoding="utf-8") as csv_file:
+                csv_reader = csv.reader(csv_file)
+
+                _video_frame_number_list = []
+                _actual_frame_number_list = []
+                _full_frame_number_list = []
 
 
-            for row in csv_reader:
-                _video_frame_number_list.append(int(row[0]))
-                _actual_frame_number_list.append(int(row[1]))
-                if row[2] != '':
-                    _full_frame_number_list.append(int(row[2]))
+                for row in csv_reader:
+                    _video_frame_number_list.append(int(row[0]))
+                    _actual_frame_number_list.append(int(row[1]))
+                    if row[2] != '':
+                        _full_frame_number_list.append(int(row[2]))
 
-        return _video_frame_number_list, _actual_frame_number_list, _full_frame_number_list
+            return _video_frame_number_list, _actual_frame_number_list, _full_frame_number_list
+        
+        except FileNotFoundError:
+            print('Video info file not found. Please check the path and try again.')
+            sys.exit(1)
     
     @staticmethod
     def calculate_distance(x: float, y:float, px: float, py:float) -> int:
@@ -279,13 +240,17 @@ class InsectTracker(DL_Detections, BS_Detections):
         return int(error)
     
     # @staticmethod
-    def map_frame_number(self, nframe: int) -> int:
+    def map_frame_number(self, nframe: int, compressed_video:bool) -> int:
 
-        if nframe in self.video_frame_num:
-            _frame_number_pos = self.video_frame_num.index(nframe)
-            self.actual_nframe = self.actual_frame_num[_frame_number_pos]
+        if compressed_video:
+            if nframe in self.video_frame_num:
+                _frame_number_pos = self.video_frame_num.index(nframe)
+                self.actual_nframe = self.actual_frame_num[_frame_number_pos]
+            else:
+                self.actual_nframe += 1
+
         else:
-            self.actual_nframe += 1
+            self.actual_nframe = nframe
 
         return self.actual_nframe
     
@@ -299,9 +264,13 @@ class InsectTracker(DL_Detections, BS_Detections):
 
         return _bs_frame
 
-    def track(self, _frame, _nframe: int, predictions: np.array) -> np.ndarray:
+    def track(self, _compressed_video:bool, _frame, _nframe: int, predictions: np.array) -> np.ndarray:
+        
+        if _compressed_video:
+            _bs_frame = self.preprocess_frame(_frame, _nframe)
+        else:
+            _bs_frame = _frame
 
-        _bs_frame = self.preprocess_frame(_frame, _nframe)
         
         _bs_detections = self.get_bs_detection(_bs_frame)
 
@@ -316,8 +285,9 @@ class InsectTracker(DL_Detections, BS_Detections):
         else:
             bs_associated_detections, bs_unassociated_detections = [], []
             bs_missing_insects = [i[0] for i in predictions]
-
+        
         run_deep_leaning = self.__verify_bs_detections(_bs_detections, bs_missing_insects, bs_unassociated_detections, predictions, _nframe)
+
 
         if run_deep_leaning:
             dl_predictions = np.zeros(shape=(0,3))
@@ -336,6 +306,7 @@ class InsectTracker(DL_Detections, BS_Detections):
 
         else:
             dl_associated_detections, dl_missing_insects, new_insects = [], [], []
+
 
         return bs_associated_detections, dl_associated_detections, dl_missing_insects, new_insects
     
@@ -413,7 +384,7 @@ class InsectTracker(DL_Detections, BS_Detections):
 
         if bs_associated_detections is None:
             bs_associated_detections = []
-    
+
         potential_new_insects = self.__remove_duplicate_detections(potential_new_insects, bs_associated_detections)
         
         _low_confidence = []
@@ -430,8 +401,9 @@ class InsectTracker(DL_Detections, BS_Detections):
     
     def __verify_bs_detections(self, _bs_detections: np.ndarray, _missing_insects: list, _unassociated_detections: np.ndarray, _predictions: np.array, _nframe: int) -> bool:
 
+
         # If there are missing insects or unassociated detections or bs_detections, run deep learning
-        if (len(_missing_insects) > 0) or (len(_unassociated_detections) > 0) or (len(_bs_detections) > len(_predictions)) or (_nframe in self.full_frame_num):
+        if (len(_missing_insects) > 0) or (len(_unassociated_detections) > 0) or (len(_bs_detections) > len(_predictions)) or (self.compressed_video and (_nframe in self.full_frame_num)):
             run_deep_learning = True
         else:
             run_deep_learning = False
@@ -536,6 +508,85 @@ class InsectTracker(DL_Detections, BS_Detections):
         
         return can_associate
         
+class LowResMode(BS_Detections):
+
+    def __init__(self) -> None:
+        BS_Detections.__init__(self)
+
+        self.fgbg_lowres = cv2.createBackgroundSubtractorKNN()
+
+        return None
+
+    def check_idle(self, _nframe: int, _predicted_position: np.array, _compressed_video: bool):
+        if ((_nframe >pt_cfg.POLYTRACK.INITIAL_FRAMES) and (bool(_predicted_position) == False) and not pt_cfg.POLYTRACK.IDLE_OUT) and not _compressed_video:
+            _idle = True
+
+        else:
+            _idle=False
+            
+        return _idle
+    
+    def prepare_to_track(self,nframe, vid, idle, new_insect, video_start_frame):
+
+        if idle and (len(new_insect)>0):
+            nframe = max((nframe - pt_cfg.POLYTRACK.BACKTRACK_FRAMES), video_start_frame)
+            reset_frame = nframe - video_start_frame
+            vid.set(1, reset_frame)
+            idle = False
+            new_insect = []
+            pt_cfg.POLYTRACK.IDLE_OUT = True
+
+        else:
+            pass
+
+        return nframe, idle, new_insect
+    
+    def process_frame(self,_frame, _compressed_video, _idle):
+
+        if _idle and not _compressed_video:
+            width, height = _frame.shape[1], _frame.shape[0]
+            idle_width, idle_height = pt_cfg.POLYTRACK.LOWERES_FRAME_WIDTH, pt_cfg.POLYTRACK.LOWERES_FRAME_HEIGHT
+            lores_frame = cv2.resize(_frame, (idle_width, idle_height))
+            _dim_factor = (width*height)/(idle_width*idle_height)
+
+            _contours = self.__detect_changes(lores_frame)
+            _possible_insects = self.__filter_contours(_contours, _dim_factor)
+
+            if len(_possible_insects) > 0:
+                return True
+            else:
+                return False
+        else:
+            return True
+
+    
+    def __detect_changes(self, _frame):
+        
+        fgmask_lowres = self.fgbg_lowres.apply(_frame)
+        pt_cfg.POLYTRACK.LR_MODE = True
+
+        fgmask_lowres_processed = self.process_fgbg_output(fgmask_lowres)
+        
+        _contours, _ = cv2.findContours(fgmask_lowres_processed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        return _contours
+    
+    def __filter_contours(self, _contours, _dim_factor):
+        _insects = np.zeros(shape=(0,3))
+    
+        for c in _contours:
+            (_x,_y), (_w, _h), _ = cv2.minAreaRect(c)
+            _area = _w*_h*_dim_factor
+
+            if (_area > pt_cfg.POLYTRACK.MIN_INSECT_AREA) and (_area<pt_cfg.POLYTRACK.MAX_INSECT_AREA):
+                _insects = np.vstack([_insects,(_x,_y,_area)])
+            else:
+                pass
+                
+        return _insects
+
+    
+
 
 
 

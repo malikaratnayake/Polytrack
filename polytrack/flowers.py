@@ -4,19 +4,24 @@ import colorsys
 import numpy as np
 import pandas as pd
 from polytrack.config import pt_cfg
-from polytrack.deep_learning import detect_deep_learning
+# from polytrack.deep_learning import detect_deep_learning
 from polytrack.record import track_frame
 from polytrack.track import associate_detections_DL, Hungarian_method
 from polytrack.general import cal_dist, assign_datapoint_name
 flowers = pd.DataFrame(columns = ['flower_num', 'x0','y0','radius','species','confidence'])
 flower_tracks = pd.DataFrame(columns = ['nframe','flower_num', 'x0','y0','radius','species','confidence'])
+from polytrack.tracker import  DL_Detections 
+
+DL_Detector = DL_Detections()
+
 
 
 def record_flowers(vid, video_name):
 
     vid.set(1, 6000)
     ret, frame = vid.read()
-    flower_positions = sorted(detect_deep_learning(frame, True), key=lambda x: float(x[0]))
+
+    flower_positions = sorted(DL_Detector.get_deep_learning_detection(frame, True), key=lambda x: float(x[0]))
     
 
     for position in flower_positions:
@@ -54,7 +59,7 @@ def get_flower_details():
 
 def track_flowers(_nframe, frame):
 
-    flower_positions_dl = sorted(detect_deep_learning(frame, True), key=lambda x: float(x[0]))
+    flower_positions_dl = sorted(DL_Detector.get_deep_learning_detection(frame, True), key=lambda x: float(x[0]))
 
     associations_DL, missing, not_associated  = associate_detections_DL(flower_positions_dl, get_flower_details(), pt_cfg.POLYTRACK.FLOWER_MOVEMENT_THRESHOLD)
 
@@ -72,10 +77,13 @@ def update_flower_master():
             last_pos_record = flower_tracks.iloc[last_pos_index].values.tolist()
 
             flowers.loc[flower, 'flower_num': 'confidence'] =  last_pos_record[1:]
-            
 
-            cv2.circle(track_frame, (last_pos_record[2],last_pos_record[3]), int(last_pos_record[4]), (0,0,255), 4)
-            cv2.putText(track_frame, 'F' + str(last_pos_record[1]), (last_pos_record[2]+last_pos_record[4], last_pos_record[3]), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
+            _center_x = int(last_pos_record[2])
+            _center_y = int(last_pos_record[3])
+            _radius = int(last_pos_record[4])
+
+            cv2.circle(track_frame, (_center_x, _center_y), _radius, (0,0,255), 4)
+            cv2.putText(track_frame, 'F' + str(last_pos_record[1]), (_center_x+_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
 
     else:
         pass
@@ -185,11 +193,15 @@ def update_flower_analysis(_insect_track, _insectname):
     return None
 
 def save_flowers():
-    flowers.insert(flowers.columns.get_loc('y0')+1,'y_adj', ((1080-flowers['y0'])) if pt_cfg.POLYTRACK.FACING_NORTH else flowers['y0'])
-    flowers.insert(flowers.columns.get_loc('confidence')+1,'Total_time',flowers[[col for col in flowers.columns if col.endswith('_time')]].sum(axis=1))
-    flowers.insert(flowers.columns.get_loc('Total_time')+1,'Total_visits', flowers[[col for col in flowers.columns if col.endswith('_visits')]].sum(axis=1))
-    flowers.to_csv(str(pt_cfg.POLYTRACK.OUTPUT)+'flowers_'+str(assign_datapoint_name())+'.csv', sep=',')
-    flower_tracks.to_csv(str(pt_cfg.POLYTRACK.OUTPUT)+'flowes_tracks_'+str(assign_datapoint_name())+'.csv', sep=',')
+    try:
+        flowers.insert(flowers.columns.get_loc('y0')+1,'y_adj', ((1080-flowers['y0'])) if pt_cfg.POLYTRACK.FACING_NORTH else flowers['y0'])
+        flowers.insert(flowers.columns.get_loc('confidence')+1,'Total_time',flowers[[col for col in flowers.columns if col.endswith('_time')]].sum(axis=1))
+        flowers.insert(flowers.columns.get_loc('Total_time')+1,'Total_visits', flowers[[col for col in flowers.columns if col.endswith('_visits')]].sum(axis=1))
+        flowers.to_csv(str(pt_cfg.POLYTRACK.OUTPUT)+'flowers_'+str(assign_datapoint_name())+'.csv', sep=',')
+        flower_tracks.to_csv(str(pt_cfg.POLYTRACK.OUTPUT)+'flowes_tracks_'+str(assign_datapoint_name())+'.csv', sep=',')
+    
+    except:
+        pass
 
 
 

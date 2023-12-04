@@ -1,6 +1,6 @@
 {
-    "yolov8_confidence": 0.15,
-    "new_insect_confidence": 0.7,
+    "yolov8_confidence": 0.99,
+    "new_insect_confidence": 0.99,
     "yolov8_iou_threshold": 0.2,
     "bs_dl_iou_threshold": 0.01,
     "knn_min_blob_area": 2,
