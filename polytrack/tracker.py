@@ -487,7 +487,6 @@ class InsectTracker(DL_Detections, BS_Detections):
         return max_distance, unassocitaed_length
 
     
-
     def cal_threshold_dist(self, _max_dist_dl,bs_mode):
         if bs_mode:
             threshold_dist = _max_dist_dl*1.5
@@ -507,6 +506,37 @@ class InsectTracker(DL_Detections, BS_Detections):
             can_associate = False
         
         return can_associate
+    
+class FlowerTracker(InsectTracker):
+    def __init__(self, video_info_filepath: str) -> None:
+        super().__init__(video_info_filepath)
+
+    def associate_detections_DL(self, _detections, _predictions, _max_dist_dl):
+        _missing = [] 
+        _assignments = self.Hungarian_method(_detections, _predictions)
+        _insects = [i[0] for i in _predictions]
+        
+        _not_associated = np.zeros(shape=(0,5))
+        for _nass in (_assignments[len(_insects):]):
+            _not_associated = np.vstack([_not_associated,(_detections[_nass])])
+                                
+        
+        _associations_DL = np.zeros(shape=(0,6))
+        for ass in np.arange(len(_insects)):
+            _record = _assignments[ass]
+
+            if (_record <= len(_detections)-1):
+                _xc, _yc, _area, _lable, _conf = _detections[_assignments[ass]][0],_detections[_assignments[ass]][1],_detections[_assignments[ass]][2],_detections[_assignments[ass]][3],_detections[_assignments[ass]][4]
+                _dist = cal_dist(_xc,_yc,_predictions[ass][1],_predictions[ass][2])
+                if(_dist>_max_dist_dl) and not self.low_confident_ass(_detections, _predictions, _max_dist_dl,_dist, False):
+                    _missing.append(_predictions[ass][0])
+                else:
+                    _associations_DL = np.vstack([_associations_DL,(_predictions[ass][0],_detections[_assignments[ass]][0],_detections[_assignments[ass]][1],_detections[_assignments[ass]][2],_detections[_assignments[ass]][3],_detections[_assignments[ass]][4])])
+                    
+            else:
+                _missing.append(_predictions[ass][0])
+
+        return _associations_DL, _missing, _not_associated
         
 class LowResMode(BS_Detections):
 

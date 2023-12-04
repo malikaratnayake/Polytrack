@@ -12,10 +12,8 @@ pt_cfg                           = __PT
 __PT.POLYTRACK                 = edict()
 
 __PT.POLYTRACK.INPUT          = './data/video/cam_3_N_video_20210308_122000' # File location of the input video file (If only a single video needs to be processed)
-__PT.POLYTRACK.INPUT_DIR      = './data/video/bees-edge/processed/' # Specify the directory of the input video files 
-__PT.POLYTRACK.COMPRESSED_VIDEO  = True
-# __PT.POLYTRACK.INPUT_DIR      = '/home/mrat0006/bm75_scratch/Sunny_Ridge_March2021/15March2021/Cam_2/converted/'
-#__PT.POLYTRACK.INPUT_DIR      = '/home/mrat0006/bm75/Polytrack/data/video/'
+__PT.POLYTRACK.INPUT_DIR      = './data/video/bees-edge/unprocessed/' # Specify the directory of the input video files 
+__PT.POLYTRACK.COMPRESSED_VIDEO  = False
 __PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video type
 __PT.POLYTRACK.CONTINUOUS_VIDEO = True # For processing multiple video files - TRUE, if video files are sequencial
 __PT.POLYTRACK.OUTPUT         = './data/output/unprocessed_out/' # Output directory

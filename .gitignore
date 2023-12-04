@@ -1,12 +1,6 @@
 
-data/video/cam_7_S_video_20210310_120402.h264.avi
-checkpoints/custom-416/variables/variables.data-00000-of-00001
-checkpoints/custom-416/saved_model.pb
-checkpoints/custom-416/variables/variables.index
-data/video/
+sandpit
 data/output
-runs/
-data/best.pt
-data/yolov8_models/yolov8s_best.pt
-data/yolov8_models/yolov8l_best.pt
-train_yolov8_object_detection_on_custom_dataset.ipynb
+data/video
+data/yolov8_models
+
