@@ -6,13 +6,13 @@ from ultralytics import YOLO
 import csv
 from scipy.optimize import linear_sum_assignment
 from polytrack.config import pt_cfg
-
-from polytrack.general import cal_dist
+from polytrack.utilities import Utilities
+# from polytrack.general import cal_dist
 
 
 model = YOLO('./data/yolov8_models/yolov8s_best.pt')
 class_names = model.names
-
+TrackUtilities = Utilities()
 
 class DL_Detections():
     yolov8_confidence = pt_cfg.POLYTRACK.YOLOV8_CONFIDENCE
@@ -106,7 +106,7 @@ class DL_Detections():
         for result in _results:
             mid_x = int((result[0] + result[2])/2)
             mid_y = int((result[1] + result[3])/2)
-            radius = int(cal_dist(result[0], result[1], mid_x, mid_y)*math.cos(math.radians(45)))
+            radius = int(TrackUtilities.cal_dist(result[0], result[1], mid_x, mid_y)*math.cos(math.radians(45)))
             _flower_detection = np.vstack([_flower_detection,(int(mid_x), int(mid_y), int(radius), result[4], result[5])])
 
         return _flower_detection
@@ -135,6 +135,10 @@ class BS_Detections:
         self.fgbg = cv2.createBackgroundSubtractorKNN()
 
         return None 
+    
+    def reset_bg_model(self):
+        self.fgbg = cv2.createBackgroundSubtractorKNN()
+        return None
     
     def get_bs_detection(self, _frame) -> np.ndarray:
 
@@ -187,48 +191,57 @@ class InsectTracker(DL_Detections, BS_Detections):
     new_insect_condidence = pt_cfg.POLYTRACK.NEW_INSECT_CONFIDENCE
     bs_dl_iou_threshold = pt_cfg.POLYTRACK.BS_DL_IOU_THRESHOLD
 
-    def __init__(self, video_info_filepath: str) -> None:
+    def __init__(self) -> None:
         DL_Detections.__init__(self)
         BS_Detections.__init__(self)
 
         # super().__init__()
         self.last_full_frame = None
         self.last_bs_associated_detections = None
-        self.video_info_filepath = video_info_filepath
         self.compressed_video = pt_cfg.POLYTRACK.COMPRESSED_VIDEO
-        if self.compressed_video:
-            self.video_frame_num, self.actual_frame_num, self.full_frame_num = self.get_video_info(self.video_info_filepath)
-            self.actual_nframe = self.actual_frame_num[0]
-        else:
-            pass
+        # if self.compressed_video:
+        self.video_frame_num, self.actual_frame_num, self.full_frame_num = None, None, None
+        self.actual_nframe = None
+        # else:
+        #     pass
+
+    def reset(self):
+        self.__init__()
+
+        return None
 
 
-    @staticmethod
-    def get_video_info(_video_info_filepath:str) -> tuple:
+    def get_video_info(self,_video_info_filepath:str, _video_name: str) -> tuple:
 
-        try:
+        # try:
 
-            csv_file = str(_video_info_filepath) + 'video_info.csv'
+        _video_info_file = os.path.join(_video_info_filepath, os.path.splitext(_video_name)[0])
 
-            with open(csv_file, "r", encoding="utf-8") as csv_file:
-                csv_reader = csv.reader(csv_file)
+        csv_file = str(_video_info_file) + '_video_info.csv'
 
-                _video_frame_number_list = []
-                _actual_frame_number_list = []
-                _full_frame_number_list = []
+        with open(csv_file, "r", encoding="utf-8") as csv_file:
+            csv_reader = csv.reader(csv_file)
 
+            _video_frame_number_list = []
+            _actual_frame_number_list = []
+            _full_frame_number_list = []
 
-                for row in csv_reader:
-                    _video_frame_number_list.append(int(row[0]))
-                    _actual_frame_number_list.append(int(row[1]))
-                    if row[2] != '':
-                        _full_frame_number_list.append(int(row[2]))
+            next(csv_reader)  # Skip the first row
 
-            return _video_frame_number_list, _actual_frame_number_list, _full_frame_number_list
+            for row in csv_reader:
+                _video_frame_number_list.append(int(row[0]))
+                _actual_frame_number_list.append(int(row[1]))
+                if row[2] != '':
+                    _full_frame_number_list.append(int(row[2]))
+
+        self.video_frame_num, self.actual_frame_num, self.full_frame_num = _video_frame_number_list, _actual_frame_number_list, _full_frame_number_list
+        self.actual_nframe = _actual_frame_number_list[0]
+
+        return _video_frame_number_list, _actual_frame_number_list, _full_frame_number_list
         
-        except FileNotFoundError:
-            print('Video info file not found. Please check the path and try again.')
-            sys.exit(1)
+        # except FileNotFoundError:
+        #     print('Video info file not found. Please check the path and try again.')
+        #     sys.exit(1)
     
     @staticmethod
     def calculate_distance(x: float, y:float, px: float, py:float) -> int:
@@ -376,6 +389,32 @@ class InsectTracker(DL_Detections, BS_Detections):
         iou = intersection_area / union_area
 
         return iou
+    
+
+    @staticmethod
+    def predict_next(_for_predictions):
+        
+        _predicted = []
+        for _insect in _for_predictions:
+            _insect_num = _insect[0]
+            _x0 = float(_insect[1])
+            _y0 = float(_insect[2])
+            _x1 = float(_insect[3])
+            _y1 = float(_insect[4])
+            
+                
+            Dk1 = np.transpose([_x0, _y0])
+            Dk2 = np.transpose([_x1, _y1])
+            A = [[2,0,-1,0],  [0,2,0,-1]]
+            Dkc = np.concatenate((Dk1,Dk2))
+            
+    #         print(Dk1,Dk2,Dkc)
+            Pk = np.dot(A,Dkc.T)
+            
+            _predicted.append([_insect_num, Pk[0], Pk[1]])
+            
+        
+        return _predicted
 
 
 
@@ -467,7 +506,7 @@ class InsectTracker(DL_Detections, BS_Detections):
         hun_matrix = np.full((mat_shape, mat_shape),0)
         for p in np.arange(num_predictions):
             for d in np.arange(num_detections):
-                hun_matrix[p][d] = cal_dist(_predictions[p][1],_predictions[p][2],_detections[d][0],_detections[d][1])
+                hun_matrix[p][d] = TrackUtilities.cal_dist(_predictions[p][1],_predictions[p][2],_detections[d][0],_detections[d][1])
         
         row_ind, col_ind = linear_sum_assignment(hun_matrix)
 
@@ -508,8 +547,8 @@ class InsectTracker(DL_Detections, BS_Detections):
         return can_associate
     
 class FlowerTracker(InsectTracker):
-    def __init__(self, video_info_filepath: str) -> None:
-        super().__init__(video_info_filepath)
+    def __init__(self) -> None:
+        super().__init__()
 
     def associate_detections_DL(self, _detections, _predictions, _max_dist_dl):
         _missing = [] 
@@ -527,7 +566,7 @@ class FlowerTracker(InsectTracker):
 
             if (_record <= len(_detections)-1):
                 _xc, _yc, _area, _lable, _conf = _detections[_assignments[ass]][0],_detections[_assignments[ass]][1],_detections[_assignments[ass]][2],_detections[_assignments[ass]][3],_detections[_assignments[ass]][4]
-                _dist = cal_dist(_xc,_yc,_predictions[ass][1],_predictions[ass][2])
+                _dist = TrackUtilities.cal_dist(_xc,_yc,_predictions[ass][1],_predictions[ass][2])
                 if(_dist>_max_dist_dl) and not self.low_confident_ass(_detections, _predictions, _max_dist_dl,_dist, False):
                     _missing.append(_predictions[ass][0])
                 else:
@@ -537,6 +576,18 @@ class FlowerTracker(InsectTracker):
                 _missing.append(_predictions[ass][0])
 
         return _associations_DL, _missing, _not_associated
+    
+    def track_flowers(self, _nframe, frame, _flower_details):
+
+        flower_positions_dl = sorted(self.get_deep_learning_detection(frame, True), key=lambda x: float(x[0]))
+
+        associations_DL, missing, not_associated  = self.associate_detections_DL(flower_positions_dl, _flower_details, pt_cfg.POLYTRACK.FLOWER_MOVEMENT_THRESHOLD)
+
+        flower_info = (_nframe, associations_DL, missing, not_associated)
+
+        # record_flower_positions(_nframe, associations_DL, missing, not_associated)
+
+        return flower_info
         
 class LowResMode(BS_Detections):
 

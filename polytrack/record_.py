@@ -10,7 +10,7 @@ from polytrack.config import pt_cfg
 from polytrack.general import cal_abs_time, assign_insect_num,cal_dist, assign_datapoint_name, check_sight_coordinates
 # from polytrack.general import cal_dist
 track_frame = np.zeros((1080,1920,3), np.uint8)
-from polytrack.flowers import get_flower_details, update_flower_analysis, save_flowers, flowers
+from polytrack.flowers_ import get_flower_details, update_flower_analysis, save_flowers, flowers
 from polytrack.analysis import check_on_flower, update_visit_num, record_entry_exit, save_flower_entry_exit
 from datetime import datetime
 #output_dir = pt_cfg.POLYTRACK.OUTPUT
@@ -161,6 +161,8 @@ def complete_tracking(_predicted_position):
 
     print('======== Tracking Completed ======== ')
     _tracking_insects = [int(i[0]) for i in _predicted_position]
+
+    pt_cfg.POLYTRACK.DARK_SPOTS = []
     
     
     for _insect in _tracking_insects:

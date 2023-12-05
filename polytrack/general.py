@@ -80,6 +80,8 @@ def get_video_start_time(video_name, _starting_frame):
     cam_direction = set_camera_direction(video_name.split('_')[2])
     # video_start_time = [record_time, _nframe]
 
+    
+
     video_record_details = [cam_number, cam_direction, record_date,  record_time, _starting_frame]
 
     
@@ -128,6 +130,8 @@ def assign_insect_num(_current_time, insect_count):
     return insect_num
 
 def assign_datapoint_name():
+
+    print(pt_cfg.POLYTRACK.CURRENT_VIDEO_DETAILS)
 
     day = int(pt_cfg.POLYTRACK.CURRENT_VIDEO_DETAILS[2].day)
     cam = int(pt_cfg.POLYTRACK.CURRENT_VIDEO_DETAILS[0])
@@ -188,6 +192,15 @@ def get_tracking_mode(_idle):
         tracking_mode = "High-resolution    "
 
     return tracking_mode
+
+def create_output_directory(output_directory, video_name):
+    # Create a directory to store the results
+    output_directory = output_directory + video_name.split('.')[0] + '/'
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    return output_directory
+
 
 
 # def read_video_info_csv(input_directory):

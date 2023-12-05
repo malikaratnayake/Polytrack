@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from polytrack.config import pt_cfg
 # from polytrack.deep_learning import detect_deep_learning
-from polytrack.record import track_frame
+# from polytrack.record import track_frame
 # from polytrack.track import associate_detections_DL, Hungarian_method
 from polytrack.general import cal_dist, assign_datapoint_name
 flowers = pd.DataFrame(columns = ['flower_num', 'x0','y0','radius','species','confidence'])
@@ -13,43 +13,43 @@ flower_tracks = pd.DataFrame(columns = ['nframe','flower_num', 'x0','y0','radius
 from polytrack.tracker import  DL_Detections, FlowerTracker
 
 DL_Detector = DL_Detections()
-FlowerTrack = FlowerTracker(pt_cfg.POLYTRACK.INPUT_DIR)
+FlowerTrack = FlowerTracker()
 
 
 
-def record_flowers(vid, video_name):
+# def record_flowers(vid, video_name):
 
-    vid.set(1, 6000)
-    ret, frame = vid.read()
+#     vid.set(1, 6000)
+#     ret, frame = vid.read()
 
-    flower_positions = sorted(DL_Detector.get_deep_learning_detection(frame, True), key=lambda x: float(x[0]))
+#     flower_positions = sorted(DL_Detector.get_deep_learning_detection(frame, True), key=lambda x: float(x[0]))
     
 
-    for position in flower_positions:
-        flower_num = len(flowers)
-        _x = int(float(position[0]))
-        _y = int(float(position[1]))
-        _radius = int(float(position[2])*pt_cfg.POLYTRACK.FLOWER_THRESH_FACTOR)
-        _species = position[3]
-        _confidence = float(position[4])
+#     for position in flower_positions:
+#         flower_num = len(flowers)
+#         _x = int(float(position[0]))
+#         _y = int(float(position[1]))
+#         _radius = int(float(position[2])*pt_cfg.POLYTRACK.FLOWER_THRESH_FACTOR)
+#         _species = position[3]
+#         _confidence = float(position[4])
 
-        flower_record = [flower_num, _x, _y, _radius, _species, _confidence]
-        flower_tracks_record = [1,flower_num, _x, _y, _radius, _species, _confidence]
-        # flowers.loc[len(flowers)] = flower_record
-        # flower_tracks.loc[len(flower_tracks)] = flower_tracks_record
+#         flower_record = [flower_num, _x, _y, _radius, _species, _confidence]
+#         flower_tracks_record = [1,flower_num, _x, _y, _radius, _species, _confidence]
+#         # flowers.loc[len(flowers)] = flower_record
+#         # flower_tracks.loc[len(flower_tracks)] = flower_tracks_record
 
-        cv2.circle(track_frame, (_x,_y), int(_radius), (0,0,255), 4)
-        cv2.putText(track_frame, 'F' + str(flower_num), (_x+_radius, _y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
+#         # cv2.circle(track_frame, (_x,_y), int(_radius), (0,0,255), 4)
+#         # cv2.putText(track_frame, 'F' + str(flower_num), (_x+_radius, _y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
 
     
     
-    flowers.to_csv(str(pt_cfg.POLYTRACK.OUTPUT)+str(video_name)+'_flowers.csv', sep=',') #Save the csv file with insect track
+#     flowers.to_csv(str(pt_cfg.POLYTRACK.OUTPUT)+str(video_name)+'_flowers.csv', sep=',') #Save the csv file with insect track
 
-    cv2.imwrite(str(pt_cfg.POLYTRACK.OUTPUT)+str(video_name)+'_flowers.png', cv2.add(frame,track_frame))
+#     # cv2.imwrite(str(pt_cfg.POLYTRACK.OUTPUT)+str(video_name)+'_flowers.png', cv2.add(frame,track_frame))
 
-    print(str(len(flowers))+' flowers Recorded')
+#     print(str(len(flowers))+' flowers Recorded')
 
-    return flowers, bool(len(get_flower_details()))
+#     return flowers, bool(len(get_flower_details()))
 
 def get_flower_details():
     
@@ -77,44 +77,48 @@ def update_flower_master():
             last_pos_index = flower_tracks.loc[flower_tracks['flower_num'] == flower].last_valid_index()
             last_pos_record = flower_tracks.iloc[last_pos_index].values.tolist()
 
-            flowers.loc[flower, 'flower_num': 'confidence'] =  last_pos_record[1:]
+            try:
+                flowers.loc[flower, 'flower_num': 'confidence'] =  last_pos_record[1:]
 
-            _center_x = int(last_pos_record[2])
-            _center_y = int(last_pos_record[3])
-            _radius = int(last_pos_record[4])
+                _center_x = int(last_pos_record[2])
+                _center_y = int(last_pos_record[3])
+                _radius = int(last_pos_record[4])
 
-            cv2.circle(track_frame, (_center_x, _center_y), _radius, (0,0,255), 4)
-            cv2.putText(track_frame, 'F' + str(last_pos_record[1]), (_center_x+_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
+                # cv2.circle(track_frame, (_center_x, _center_y), _radius, (0,0,255), 4)
+                # cv2.putText(track_frame, 'F' + str(last_pos_record[1]), (_center_x+_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
+
+            except:
+                pass
 
     else:
         pass
 
-def associate_detections_DL(_detections, _predictions, _max_dist_dl):
-    _missing = [] 
-    _assignments = Hungarian_method(_detections, _predictions)
-    _insects = [i[0] for i in _predictions]
+# def associate_detections_DL(_detections, _predictions, _max_dist_dl):
+#     _missing = [] 
+#     _assignments = Hungarian_method(_detections, _predictions)
+#     _insects = [i[0] for i in _predictions]
     
-    _not_associated = np.zeros(shape=(0,5))
-    for _nass in (_assignments[len(_insects):]):
-        _not_associated = np.vstack([_not_associated,(_detections[_nass])])
+#     _not_associated = np.zeros(shape=(0,5))
+#     for _nass in (_assignments[len(_insects):]):
+#         _not_associated = np.vstack([_not_associated,(_detections[_nass])])
                                
     
-    _associations_DL = np.zeros(shape=(0,6))
-    for ass in np.arange(len(_insects)):
-        _record = _assignments[ass]
+#     _associations_DL = np.zeros(shape=(0,6))
+#     for ass in np.arange(len(_insects)):
+#         _record = _assignments[ass]
 
-        if (_record <= len(_detections)-1):
-            _xc, _yc, _area, _lable, _conf = _detections[_assignments[ass]][0],_detections[_assignments[ass]][1],_detections[_assignments[ass]][2],_detections[_assignments[ass]][3],_detections[_assignments[ass]][4]
-            _dist = cal_dist(_xc,_yc,_predictions[ass][1],_predictions[ass][2])
-            if(_dist>_max_dist_dl) and not low_confident_ass(_detections, _predictions, max_dist_dl,_dist, False):
-                _missing.append(_predictions[ass][0])
-            else:
-                _associations_DL = np.vstack([_associations_DL,(_predictions[ass][0],_detections[_assignments[ass]][0],_detections[_assignments[ass]][1],_detections[_assignments[ass]][2],_detections[_assignments[ass]][3],_detections[_assignments[ass]][4])])
+#         if (_record <= len(_detections)-1):
+#             _xc, _yc, _area, _lable, _conf = _detections[_assignments[ass]][0],_detections[_assignments[ass]][1],_detections[_assignments[ass]][2],_detections[_assignments[ass]][3],_detections[_assignments[ass]][4]
+#             _dist = cal_dist(_xc,_yc,_predictions[ass][1],_predictions[ass][2])
+#             if(_dist>_max_dist_dl) and not low_confident_ass(_detections, _predictions, max_dist_dl,_dist, False):
+#                 _missing.append(_predictions[ass][0])
+#             else:
+#                 _associations_DL = np.vstack([_associations_DL,(_predictions[ass][0],_detections[_assignments[ass]][0],_detections[_assignments[ass]][1],_detections[_assignments[ass]][2],_detections[_assignments[ass]][3],_detections[_assignments[ass]][4])])
                 
-        else:
-            _missing.append(_predictions[ass][0])
+#         else:
+#             _missing.append(_predictions[ass][0])
 
-    return _associations_DL, _missing, _not_associated
+#     return _associations_DL, _missing, _not_associated
 
 
 def record_flower_positions(_nframe, _associations_DL, _missing, _not_associated):

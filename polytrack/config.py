@@ -12,18 +12,19 @@ pt_cfg                           = __PT
 __PT.POLYTRACK                 = edict()
 
 __PT.POLYTRACK.INPUT          = './data/video/cam_3_N_video_20210308_122000' # File location of the input video file (If only a single video needs to be processed)
-__PT.POLYTRACK.INPUT_DIR      = './data/video/bees-edge/unprocessed/' # Specify the directory of the input video files 
-__PT.POLYTRACK.COMPRESSED_VIDEO  = False
+__PT.POLYTRACK.INPUT_DIR      = './data/video/Ratnayake2023_processed/' # Specify the directory of the input video files /Users/mrat0010/Documents/GitHub/EcoMotionZip/testing/test_videos/Ratnayake2023
+__PT.POLYTRACK.COMPRESSED_VIDEO  = True
 __PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video type
-__PT.POLYTRACK.CONTINUOUS_VIDEO = True # For processing multiple video files - TRUE, if video files are sequencial
-__PT.POLYTRACK.OUTPUT         = './data/output/unprocessed_out/' # Output directory
+__PT.POLYTRACK.CONTINUOUS_VIDEO = False # For processing multiple video files - TRUE, if video files are sequencial
+__PT.POLYTRACK.OUTPUT_DIR     = './data/output/Ratnayake2023_processed/' # Output directory
+__PT.POLYTRACK.OUTPUT         = None # Automatically updated by the algorithm.
 __PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted frooutputm the video file name (defaul setting -> None)
 __PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (defaul setting -> None)
 __PT.POLYTRACK.INSECT_COUNT = 0 
 
 #Displaying output video
 __PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
-__PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = True # Set TRUE to display output video. Insect tracks superimposed on the video.
+__PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = False # Set TRUE to display output video. Insect tracks superimposed on the video.
 __PT.POLYTRACK.VIDEO_OUTPUT_WIDTH    = 1280 # Width of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_HEIGHT   = 720 # Height of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_SETUP    = False # Initialisation parameter
@@ -32,7 +33,6 @@ __PT.POLYTRACK.VIDEO_OUTPUT_SETUP    = False # Initialisation parameter
 __PT.POLYTRACK.VIDEO_WRITER         = 'DIVX' #Set the video writer
 __PT.POLYTRACK.SAVE_TRACK_FRAME     = False #Set TRUE to record a video with insect tracks
 __PT.POLYTRACK.SAVE_VIDEO_OUTPUT    = True #Set TRUE to record output video
-__PT.POLYTRACK.PLOT_GRAPH           = False #Set TRUE to save the insect trajectories as PNGs
 __PT.POLYTRACK.SIGHTING_TIMES       = False #Set TRUE to export a csv with insect sighting times
 
 
@@ -82,7 +82,7 @@ __PT.POLYTRACK.FILTER_TRACKS_VERIFY_FRAMES = 20 # Number of frames considered fo
 
 
 #Foreground background detection related parameters
-__PT.POLYTRACK.MAX_BG_CHANGES = 1 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
+__PT.POLYTRACK.MAX_BG_CHANGES = 2 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
 __PT.POLYTRACK.MIN_INSECT_AREA = 2 # Minimum area covered by an insect (pixels)
 __PT.POLYTRACK.MAX_INSECT_AREA = 4750 # Maximum area covered by an insect (pixels)
 
@@ -105,7 +105,7 @@ __PT.POLYTRACK.LOWERES_FRAME_HEIGHT = 480 # Frame height for the low resolution 
 # Deep Leraning (YOLOv4) related parameters
 __PT.POLYTRACK.TRACKING_INSECTS = ['honeybee', 'flower','hoverfly', 'moth'] #Class labels
 __PT.POLYTRACK.YOLOV8_CONFIDENCE = 0.15 # Minimum confidence for a detection
-__PT.POLYTRACK.NEW_INSECT_CONFIDENCE = 0.7 # Non-maximum suppression threshold
+__PT.POLYTRACK.NEW_INSECT_CONFIDENCE = 0.65 # Non-maximum suppression threshold
 __PT.POLYTRACK.DL_IOU_THRESHOLD = 0.2 # IoU for a detection
 __PT.POLYTRACK.BS_DL_IOU_THRESHOLD = 0.01 # IoU for a detection
 __PT.POLYTRACK.MAX_TOTAL_SIZE = 50 # Maximum number of detections per frame
