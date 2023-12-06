@@ -24,7 +24,7 @@ __PT.POLYTRACK.INSECT_COUNT = 0
 
 #Displaying output video
 __PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
-__PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = False # Set TRUE to display output video. Insect tracks superimposed on the video.
+__PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = True # Set TRUE to display output video. Insect tracks superimposed on the video.
 __PT.POLYTRACK.VIDEO_OUTPUT_WIDTH    = 1280 # Width of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_HEIGHT   = 720 # Height of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_SETUP    = False # Initialisation parameter
@@ -68,7 +68,7 @@ __PT.POLYTRACK.INSECT_VERIFICATION_INTERVAL = 60 #Interval between two verificat
 __PT.POLYTRACK.INSECT_VERIFICATION_MIN_FRAMES = 30 #Minimum recorded duration of the track that is considered for the verification.
 __PT.POLYTRACK.INSECT_VERIFICATION_LAST_FRAMES = 20 #Number of frames to measure distance
 __PT.POLYTRACK.INSECT_VERIFICATION_THRESHOLD_CUM_DISTANCE = 20 # Minimum total distance the track must have recorded to qualify as a verfied (true positive) track.
-__PT.POLYTRACK.INSECT_VERIFICATION_MIN_BS = 0.5 #Minimum number of background subtraction based detections a track should contain to bypass the verification process. 
+__PT.POLYTRACK.INSECT_VERIFICATION_MIN_BS = 0.15 #Minimum number of background subtraction based detections a track should contain to bypass the verification process. 
 __PT.POLYTRACK.NEW_INSECT_MODE = False # Automatically updated by the algorithm.
 
 __PT.POLYTRACK.DL_DARK_SPOTS = True # Mark the positions of false positive YOLO detections for later reference
@@ -82,8 +82,8 @@ __PT.POLYTRACK.FILTER_TRACKS_VERIFY_FRAMES = 20 # Number of frames considered fo
 
 
 #Foreground background detection related parameters
-__PT.POLYTRACK.MAX_BG_CHANGES = 2 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
-__PT.POLYTRACK.MIN_INSECT_AREA = 2 # Minimum area covered by an insect (pixels)
+__PT.POLYTRACK.MAX_BG_CHANGES = 1 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
+__PT.POLYTRACK.MIN_INSECT_AREA = 5 # Minimum area covered by an insect (pixels)
 __PT.POLYTRACK.MAX_INSECT_AREA = 4750 # Maximum area covered by an insect (pixels)
 
 #Analysis Parameters
@@ -104,9 +104,9 @@ __PT.POLYTRACK.LOWERES_FRAME_HEIGHT = 480 # Frame height for the low resolution 
 
 # Deep Leraning (YOLOv4) related parameters
 __PT.POLYTRACK.TRACKING_INSECTS = ['honeybee', 'flower','hoverfly', 'moth'] #Class labels
-__PT.POLYTRACK.YOLOV8_CONFIDENCE = 0.15 # Minimum confidence for a detection
-__PT.POLYTRACK.NEW_INSECT_CONFIDENCE = 0.65 # Non-maximum suppression threshold
-__PT.POLYTRACK.DL_IOU_THRESHOLD = 0.2 # IoU for a detection
-__PT.POLYTRACK.BS_DL_IOU_THRESHOLD = 0.01 # IoU for a detection
+__PT.POLYTRACK.YOLOV8_CONFIDENCE = 0.2 # Minimum confidence for a detection
+__PT.POLYTRACK.NEW_INSECT_CONFIDENCE = [0.7,0.9,0.5,0.6] # Non-maximum suppression threshold
+__PT.POLYTRACK.DL_IOU_THRESHOLD = 0 # IoU for a detection
+__PT.POLYTRACK.BS_DL_IOU_THRESHOLD = 0 # IoU for a detection
 __PT.POLYTRACK.MAX_TOTAL_SIZE = 50 # Maximum number of detections per frame
 __PT.POLYTRACK.MAX_OUTPUT_SIZE_PER_CLASS = 50 

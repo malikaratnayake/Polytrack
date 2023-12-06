@@ -96,11 +96,12 @@ def main(_argv):
             if frame is not None:
                 nframe += 1
                 act_nframe = TrackInsect.map_frame_number(nframe, compressed_video)
+                # print(" Frame Number: ", nframe)
 
                 if len(predicted_position) == 0 and (compressed_video and nframe in compressed_frame_num):
                     TrackInsect.reset_bg_model()
 
-                if (compressed_video and nframe in frame_in_video) or (not compressed_video and nframe % pt_cfg.POLYTRACK.FLOWER_UPDATE_FREQUENCY == 0):
+                if (compressed_video and nframe in frame_in_video) or (not compressed_video and nframe % pt_cfg.POLYTRACK.FLOWER_UPDATE_FREQUENCY == 1):
                     current_flower_details = DataRecorder.get_flower_details()
                     updated_flower_positions = DataRecorder.record_flower_positions(TrackFlowers.track_flowers(act_nframe, frame, current_flower_details))
 
@@ -113,7 +114,7 @@ def main(_argv):
 
 
                 if possible_insects:
-                    associated_det_BS, associated_det_DL, missing, new_insect = TrackInsect.track(compressed_video, frame, nframe,  predicted_position)
+                    associated_det_BS, associated_det_DL, missing, new_insect = TrackInsect.track(compressed_video, frame,nframe,  predicted_position)
                 
                 act_nframe, idle, new_insect = LowResProcessor.prepare_to_track(act_nframe, vid, idle, new_insect, video_start_frame)
                 for_predictions = DataRecorder.record_track(frame, act_nframe,associated_det_BS, associated_det_DL, missing, new_insect, updated_flower_positions ,idle)
@@ -121,6 +122,7 @@ def main(_argv):
                 
 
                 fps = round(nframe/ (time.time() - start_time_py),2)
+                
                 print(str(nframe) + ' out of ' + str(total_frames) + ' frames processed | ' + str(fps) +' FPS | Tracking Mode:  '+ str(TrackUtilities.get_tracking_mode(idle)) +'        ' , end = '\r') 
  
      
@@ -161,10 +163,10 @@ def main(_argv):
 
 
 if __name__ == '__main__':
-    try:
-        app.run(main)
+    # try:
+    app.run(main)
 
-    except:
+    # except:
                 # save_flowers()
-        sys.exit(0)
+        # sys.exit(0)
 

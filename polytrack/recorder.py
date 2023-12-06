@@ -411,7 +411,7 @@ class Recorder(VideoWriter, FlowerRecorder):
             
             if self.output_video:
                 cv2.circle(self.track_frame, (_x, _y), 3, self.track_colour(_insect_num), 2)
-                cv2.putText(details_frame, str(pt_cfg.POLYTRACK.TRACKING_INSECTS[int(_species)])+' ' + str(_insect_num)+' DL', (_x+20, _y+20), cv2.FONT_HERSHEY_DUPLEX , 0.7, self.track_colour(_insect_num), 1, cv2.LINE_AA) 
+                cv2.putText(details_frame, str(pt_cfg.POLYTRACK.TRACKING_INSECTS[int(_species)])+' ' + str(_insect_num)+' DL' + str(round(int(_confidence),2)), (_x+20, _y+20), cv2.FONT_HERSHEY_DUPLEX , 0.7, self.track_colour(_insect_num), 1, cv2.LINE_AA) 
 
             
             insect_record_DL = [_nframe, _insect_num, _x, _y, _area, _species, _confidence, _status, _model,_flower, _visit_number]

@@ -7,10 +7,12 @@ import csv
 from scipy.optimize import linear_sum_assignment
 from polytrack.config import pt_cfg
 from polytrack.utilities import Utilities
+import random
 # from polytrack.general import cal_dist
 
 
 model = YOLO('./data/yolov8_models/yolov8s_best.pt')
+model_new_insects = YOLO('./data/yolov8_models/yolov8l_best.pt')
 class_names = model.names
 TrackUtilities = Utilities()
 
@@ -45,8 +47,11 @@ class DL_Detections():
             else:
                 classes_to_detect = self.insect_classes
 
+            
+
             # Run the model on the input frame with the specified parameters
             results = model.predict(source=_frame, conf=self.yolov8_confidence, show=False, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
+            # results = model.predict(source=_frame, conf=0.1, show=False, verbose = False, iou = 0.01, classes = classes_to_detect)
 
             # Extract the classes, confidence scores, and bounding boxes from the results
             classes = results[0].boxes.cls
@@ -96,6 +101,7 @@ class DL_Detections():
             processed_detections = self.__process_flower_results(_detections)
         else:
             processed_detections = self.__process_insect_results(_detections)
+            # print(processed_detections, 'processed_detections')
 
         return processed_detections
     
@@ -115,10 +121,13 @@ class DL_Detections():
         _insect_detection = np.zeros(shape=(0,5))
 
         for result in _results:
+            # print("result", result)
             mid_x = int((result[0] + result[2])/2)
             mid_y = int((result[1] + result[3])/2)
             area = int(abs((result[0] - result[2])*(result[1] - result[3])))
             _insect_detection = np.vstack([_insect_detection,(mid_x, mid_y, area, result[4], result[5])])
+
+        # print("insect detection: ", _insect_detection)
 
         return _insect_detection
     
@@ -129,10 +138,12 @@ class BS_Detections:
     min_area = pt_cfg.POLYTRACK.MIN_INSECT_AREA
     max_area = pt_cfg.POLYTRACK.MAX_INSECT_AREA
     new_insect_confidence = pt_cfg.POLYTRACK.NEW_INSECT_CONFIDENCE
+    
 
     def __init__(self) -> None:
 
         self.fgbg = cv2.createBackgroundSubtractorKNN()
+        self.prev_frame = None
 
         return None 
     
@@ -151,16 +162,52 @@ class BS_Detections:
     def process_fgbg_output(self, _fgmask) -> np.ndarray:
         _median = cv2.medianBlur(_fgmask,9)
         _kernel = np.ones((5,5),np.uint8)
-        _processed_frame = cv2.erode(_median,_kernel,iterations = 1)
+        
+        _eroded_frame = cv2.erode(_median,_kernel,iterations = 1)
+        _, threshed_diff = cv2.threshold(src=_eroded_frame, thresh=200 , maxval=255, type=cv2.THRESH_BINARY)
+        # Dilate
+        _processed_frame = cv2.dilate(threshed_diff,_kernel,iterations = 1)
+
+        # cv2.imshow('frame',_processed_frame)
 
         return _processed_frame
+    
+    def calculate_diff(self, _frame):
+        _bg_frame =  cv2.cvtColor(_frame,  cv2.COLOR_BGR2GRAY)
+
+        if self.prev_frame is not None:
+            diff = cv2.absdiff(_bg_frame, self.prev_frame)
+            # Convert to grayscale
+            
+
+
+            # # Cut off pixels that did not have "enough" movement. This is now a 2D array of just 1s and 0s
+            _, threshed_diff = cv2.threshold(src=diff, thresh=100 , maxval=255, type=cv2.THRESH_BINARY)
+            gray_frame = cv2.dilate(threshed_diff, kernel=np.ones((5, 5)))
+
+            # mask = cv2.medianBlur(cv2.dilate(threshed_diff, kernel=self.dilation_kernel), 9)
+
+        else:
+            gray_frame = None
+
+        self.prev_frame = _bg_frame
+
+
+        return gray_frame
+
+
 
     
     def __run_bs(self, _frame) -> np.ndarray:
 
-        _fgmask = self.fgbg.apply(_frame)
+        # _fgmask = self.calculate_diff(_frame)
+
+        # if _fgmask is None:
+        _fgmask = self.fgbg.apply(_frame, learningRate=0.1)
 
         _processed_frame = self.process_fgbg_output(_fgmask)
+        
+        # cv2.imshow('frame',_processed_frame)
 
         _contours, _ = cv2.findContours(_processed_frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -267,24 +314,25 @@ class InsectTracker(DL_Detections, BS_Detections):
 
         return self.actual_nframe
     
-    def preprocess_frame(self, _frame, _nframe: int):
-        
+    def preprocess_frame(self, __frame, _nframe: int):
+
         if _nframe in self.full_frame_num:
-            self.last_full_frame = _frame
-            _bs_frame = _frame
+            self.last_full_frame = __frame
+            _bs_frame = __frame
         else:
-            _bs_frame = cv2.add(cv2.absdiff(_frame, self.last_full_frame), _frame)
+            _bs_frame = cv2.add(cv2.absdiff(__frame, self.last_full_frame), __frame)
 
         return _bs_frame
 
-    def track(self, _compressed_video:bool, _frame, _nframe: int, predictions: np.array) -> np.ndarray:
+    def track(self, _compressed_video, _frame,_nframe, predictions):
+
+        _dl_frame = _frame.copy()
         
         if _compressed_video:
             _bs_frame = self.preprocess_frame(_frame, _nframe)
         else:
             _bs_frame = _frame
 
-        
         _bs_detections = self.get_bs_detection(_bs_frame)
 
         if len(_bs_detections) <= len(predictions):
@@ -306,14 +354,13 @@ class InsectTracker(DL_Detections, BS_Detections):
             dl_predictions = np.zeros(shape=(0,3))
             for pred in np.arange(len(bs_missing_insects)):
                 dl_predictions = np.vstack([dl_predictions,([row for row in predictions if bs_missing_insects[pred] == row[0]])])
-
-            _dl_detections = self.get_deep_learning_detection(_frame, detect_flowers=False)
-
+                
+            _dl_detections = self.get_deep_learning_detection(_dl_frame, detect_flowers=False)
             
             dl_associated_detections, dl_missing_insects, potential_new_insects = self.__process_detections(_dl_detections, dl_predictions, True)
 
             if potential_new_insects.any():
-                new_insects = self.__verify_new_insects(potential_new_insects, self.last_bs_associated_detections)
+                new_insects = self.__verify_new_insects(_frame, potential_new_insects, self.last_bs_associated_detections)
             else:
                 new_insects = []
 
@@ -419,7 +466,7 @@ class InsectTracker(DL_Detections, BS_Detections):
 
 
 
-    def __verify_new_insects(self, potential_new_insects: np.ndarray, bs_associated_detections: np.ndarray) -> list:
+    def __verify_new_insects(self, _frame, potential_new_insects: np.ndarray, bs_associated_detections: np.ndarray) -> list:
 
         if bs_associated_detections is None:
             bs_associated_detections = []
@@ -427,11 +474,44 @@ class InsectTracker(DL_Detections, BS_Detections):
         potential_new_insects = self.__remove_duplicate_detections(potential_new_insects, bs_associated_detections)
         
         _low_confidence = []
-        for _dl_detection in np.arange(len(potential_new_insects)):
-            if potential_new_insects[_dl_detection][4] < self.new_insect_confidence:
+        for _dl_detection in np.arange(len(potential_new_insects)):            
+
+            #Get the midpoint of the bounding box
+            _mid_x = int(potential_new_insects[_dl_detection][0])
+            _mid_y = int(potential_new_insects[_dl_detection][1])
+            _insect_type = int(potential_new_insects[_dl_detection][3])
+
+            #Get the coordinates of top left and bottom right of the bounding box
+            _x0 = max(0, int(_mid_x - 160))
+            _y0 = max(0, int(_mid_y - 160))
+            _x1 = min(int(_mid_x + 160), 1920)
+            _y1 = min(int(_mid_y + 160), 1080)
+        
+
+            #Crop the bounding box from the frame
+            _croped_frame = _frame[_y0:_y1, _x0:_x1]
+
+            # Expand the cropped bounding box to a 640x640 frame with the cropped bounding box in the center
+            _black_frame = np.zeros((640,640,3), np.uint8)
+            
+            # Place the cropped frame in the coordintes 200,200 of the black frame
+            _black_frame[200:200+_croped_frame.shape[0], 200:200+_croped_frame.shape[1]] = _croped_frame
+
+            #Flip the frame horizontally and vertically
+            _crop = cv2.flip(_black_frame, -1)
+
+            _confidence = self.new_insect_confidence[_insect_type]
+            
+
+            _new_insect_results = model_new_insects.predict(source=_crop, conf=_confidence, show=False, verbose = False, iou = 0.5, classes = [_insect_type], augment = True, imgsz = (640,640))
+
+
+            # if potential_new_insects[_dl_detection][4] < self.new_insect_confidence:
+            if len(_new_insect_results[0]) == 0:
                 _low_confidence.append(_dl_detection)
             else:
                pass
+
         _new_insects = np.delete(potential_new_insects, _low_confidence, axis=0)
 
         return _new_insects
@@ -440,9 +520,8 @@ class InsectTracker(DL_Detections, BS_Detections):
     
     def __verify_bs_detections(self, _bs_detections: np.ndarray, _missing_insects: list, _unassociated_detections: np.ndarray, _predictions: np.array, _nframe: int) -> bool:
 
-
         # If there are missing insects or unassociated detections or bs_detections, run deep learning
-        if (len(_missing_insects) > 0) or (len(_unassociated_detections) > 0) or (len(_bs_detections) > len(_predictions)) or (self.compressed_video and (_nframe in self.full_frame_num)):
+        if (len(_missing_insects) > 0) or (len(_unassociated_detections) > 0) or (len(_bs_detections) > len(_predictions)) or (len(_bs_detections) == 0 and self.compressed_video ) or (self.compressed_video and (_nframe in self.full_frame_num)):
             run_deep_learning = True
         else:
             run_deep_learning = False
