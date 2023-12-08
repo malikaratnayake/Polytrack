@@ -27,7 +27,7 @@ TrackUtilities = Utilities()
 TrackInsect = InsectTracker()
 TrackFlowers = FlowerTracker()
 LowResProcessor = LowResMode()
-compressed_video =pt_cfg.POLYTRACK.COMPRESSED_VIDEO
+compressed_video = pt_cfg.POLYTRACK.COMPRESSED_VIDEO
 
 
 def main(_argv):
@@ -96,7 +96,6 @@ def main(_argv):
             if frame is not None:
                 nframe += 1
                 act_nframe = TrackInsect.map_frame_number(nframe, compressed_video)
-                # print(" Frame Number: ", nframe)
 
                 if len(predicted_position) == 0 and (compressed_video and nframe in compressed_frame_num):
                     TrackInsect.reset_bg_model()
@@ -107,14 +106,17 @@ def main(_argv):
 
                 else:
                     pass
+                    
+                if compressed_video: 
+                    audit_frame = TrackUtilities.audit_frame(nframe, frame_in_video)
+                else:
+                    audit_frame = False
 
                 idle = LowResProcessor.check_idle(nframe, predicted_position, compressed_video)
                 possible_insects = LowResProcessor.process_frame(frame, compressed_video, idle)
 
-
-
                 if possible_insects:
-                    associated_det_BS, associated_det_DL, missing, new_insect = TrackInsect.track(compressed_video, frame,nframe,  predicted_position)
+                    associated_det_BS, associated_det_DL, missing, new_insect = TrackInsect.track(compressed_video, frame,nframe, audit_frame , predicted_position)
                 
                 act_nframe, idle, new_insect = LowResProcessor.prepare_to_track(act_nframe, vid, idle, new_insect, video_start_frame)
                 for_predictions = DataRecorder.record_track(frame, act_nframe,associated_det_BS, associated_det_DL, missing, new_insect, updated_flower_positions ,idle)

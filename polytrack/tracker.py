@@ -11,9 +11,14 @@ import random
 # from polytrack.general import cal_dist
 
 
-model = YOLO('./data/yolov8_models/yolov8s_best.pt')
-model_new_insects = YOLO('./data/yolov8_models/yolov8l_best.pt')
-class_names = model.names
+model_flowers = YOLO(pt_cfg.POLYTRACK.FLOWER_MODEL)
+model_insects = YOLO(pt_cfg.POLYTRACK.INSECT_MODEL)
+if pt_cfg.POLYTRACK.INSECT_MODEL_LARGE is not None:
+    model_insects_large = YOLO(pt_cfg.POLYTRACK.INSECT_MODEL_LARGE)
+else:
+    model_insects_large = model_insects
+
+class_names = model_insects.names
 TrackUtilities = Utilities()
 
 class DL_Detections():
@@ -27,7 +32,7 @@ class DL_Detections():
 
         return None
 
-    def __run_deep_learning(self, _frame, detect_flowers: bool) -> np.ndarray:
+    def __run_deep_learning(self, _frame, audit_frame,detect_flowers: bool) -> np.ndarray:
             """
             Runs deep learning model on the input frame to detect flowers or insects.
 
@@ -44,30 +49,41 @@ class DL_Detections():
             # Set the classes to detect based on the input parameter
             if detect_flowers:
                 classes_to_detect = self.flower_class
+                yolov8_model = model_flowers
+
+            elif audit_frame:
+                classes_to_detect = self.insect_classes
+                yolov8_model = model_insects_large
+
             else:
                 classes_to_detect = self.insect_classes
+                yolov8_model = model_insects
+                
 
-            
-
-            # Run the model on the input frame with the specified parameters
-            results = model.predict(source=_frame, conf=self.yolov8_confidence, show=False, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
-            # results = model.predict(source=_frame, conf=0.1, show=False, verbose = False, iou = 0.01, classes = classes_to_detect)
-
-            # Extract the classes, confidence scores, and bounding boxes from the results
-            classes = results[0].boxes.cls
-            conf = results[0].boxes.conf
-            boxes = results[0].boxes.xyxy
-
-            # Create array in the format [xmin, ymin, xmax, ymax, class, confidence]
-            detections = np.zeros((len(classes), 6))
-            detections[:, 0] = boxes[:, 0]
-            detections[:, 1] = boxes[:, 1]
-            detections[:, 2] = boxes[:, 2]
-            detections[:, 3] = boxes[:, 3]
-            detections[:, 4] = classes
-            detections[:, 5] = conf
+            results = yolov8_model.predict(source=_frame, conf=self.yolov8_confidence, show=False, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
+            detections = self._decode_DL_results(results)
 
             return detections
+    
+    def _decode_DL_results(self, _results: np.ndarray) -> np.ndarray:
+        
+        # Extract the classes, confidence scores, and bounding boxes from the results
+        _results_cpu = _results[0].boxes.cpu()
+        classes = _results_cpu.cls
+        conf = _results_cpu.conf
+        boxes = _results_cpu.xyxy
+
+        # Create array in the format [xmin, ymin, xmax, ymax, class, confidence]
+        detections = np.zeros((len(classes), 6))
+        detections[:, 0] = boxes[:, 0]
+        detections[:, 1] = boxes[:, 1]
+        detections[:, 2] = boxes[:, 2]
+        detections[:, 3] = boxes[:, 3]
+        detections[:, 4] = classes
+        detections[:, 5] = conf
+
+        return detections
+
 
     def __get_classes_to_detect(self, detect_flowers: bool) -> list:
             """
@@ -93,15 +109,14 @@ class DL_Detections():
             return _class_list
     
 
-    def get_deep_learning_detection(self, _frame, detect_flowers: bool) -> np.ndarray:
+    def get_deep_learning_detection(self, _frame, audit_frame, detect_flowers: bool) -> np.ndarray:
 
-        _detections = self.__run_deep_learning(_frame, detect_flowers)
+        _detections = self.__run_deep_learning(_frame, audit_frame ,detect_flowers)
 
         if detect_flowers:
             processed_detections = self.__process_flower_results(_detections)
         else:
             processed_detections = self.__process_insect_results(_detections)
-            # print(processed_detections, 'processed_detections')
 
         return processed_detections
     
@@ -324,7 +339,7 @@ class InsectTracker(DL_Detections, BS_Detections):
 
         return _bs_frame
 
-    def track(self, _compressed_video, _frame,_nframe, predictions):
+    def track(self, _compressed_video, _frame, _nframe, audit_frame ,predictions):
 
         _dl_frame = _frame.copy()
         
@@ -355,7 +370,7 @@ class InsectTracker(DL_Detections, BS_Detections):
             for pred in np.arange(len(bs_missing_insects)):
                 dl_predictions = np.vstack([dl_predictions,([row for row in predictions if bs_missing_insects[pred] == row[0]])])
                 
-            _dl_detections = self.get_deep_learning_detection(_dl_frame, detect_flowers=False)
+            _dl_detections = self.get_deep_learning_detection(_dl_frame, audit_frame ,detect_flowers=False)
             
             dl_associated_detections, dl_missing_insects, potential_new_insects = self.__process_detections(_dl_detections, dl_predictions, True)
 
@@ -503,16 +518,19 @@ class InsectTracker(DL_Detections, BS_Detections):
             _confidence = self.new_insect_confidence[_insect_type]
             
 
-            _new_insect_results = model_new_insects.predict(source=_crop, conf=_confidence, show=False, verbose = False, iou = 0.5, classes = [_insect_type], augment = True, imgsz = (640,640))
+            _new_insect_results = model_insects_large.predict(source=_crop, conf=_confidence, show=False, verbose = False, iou = 0.5, classes = [_insect_type], augment = True, imgsz = (640,640))
+
+            _new_insect_detections = self._decode_DL_results(_new_insect_results)
 
 
             # if potential_new_insects[_dl_detection][4] < self.new_insect_confidence:
-            if len(_new_insect_results[0]) == 0:
+            if len(_new_insect_detections) == 0:
                 _low_confidence.append(_dl_detection)
             else:
                pass
 
         _new_insects = np.delete(potential_new_insects, _low_confidence, axis=0)
+
 
         return _new_insects
 
@@ -658,7 +676,7 @@ class FlowerTracker(InsectTracker):
     
     def track_flowers(self, _nframe, frame, _flower_details):
 
-        flower_positions_dl = sorted(self.get_deep_learning_detection(frame, True), key=lambda x: float(x[0]))
+        flower_positions_dl = sorted(self.get_deep_learning_detection(frame, False,True), key=lambda x: float(x[0]))
 
         associations_DL, missing, not_associated  = self.associate_detections_DL(flower_positions_dl, _flower_details, pt_cfg.POLYTRACK.FLOWER_MOVEMENT_THRESHOLD)
 

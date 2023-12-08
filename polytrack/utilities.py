@@ -214,4 +214,16 @@ class Utilities:
 
         return output_directory
 
+    @staticmethod
+    def audit_frame(nframe, frame_in_video):
 
+        # Get the value in ListA that is closest to number
+        closest_full_frame = min(frame_in_video, key=lambda x:abs(x-nframe))
+        
+        audit_interval  = [closest_full_frame, closest_full_frame+pt_cfg.POLYTRACK.AUDIT_INTERVAL]
+
+        # If the number is within the audit interval, print "Audit"
+        if nframe > audit_interval[0] and nframe < audit_interval[1]:
+            return True
+        else:
+            return False

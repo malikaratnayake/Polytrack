@@ -22,6 +22,11 @@ __PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted
 __PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (defaul setting -> None)
 __PT.POLYTRACK.INSECT_COUNT = 0 
 
+# Deep Learning Detection models
+__PT.POLYTRACK.FLOWER_MODEL = './data/yolov8_models/yolov8l_best.pt' # Specify the path to the deep learning model to be used for flower detection.
+__PT.POLYTRACK.INSECT_MODEL = './data/yolov8_models/yolov8s_best.pt' # Specify the path to the deep learning model to be used for insect detection.
+__PT.POLYTRACK.INSECT_MODEL_LARGE = './data/yolov8_models/yolov8l_best.pt' # Specify the path to the heavy/large version of deep learning model used for insect detection (if applicable). If unavailable, set to None.
+
 #Displaying output video
 __PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
 __PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = True # Set TRUE to display output video. Insect tracks superimposed on the video.
@@ -61,6 +66,7 @@ __PT.POLYTRACK.INITIAL_FRAMES = 50 #Tracking will not shift to low resolution du
 __PT.POLYTRACK.MAX_DIST_BS = 125 #Max distance allowed between predicted position and background subtraction-based detection for association (Please refer https://doi.org/10.1371/journal.pone.0239504 for more information)
 __PT.POLYTRACK.MAX_DIST_DL = 300 #Max distance allowed between predicted position and deep learning-based detection for association (Please refer https://doi.org/10.1371/journal.pone.0239504 for more information)
 __PT.POLYTRACK.FLOWER_THRESH_FACTOR = 1.15 # Width of the flower border (for marking flowers in the video output)
+__PT.POLYTRACK.AUDIT_INTERVAL = 5 # Width of the flower border (for marking flowers in the video output)
 
 
 __PT.POLYTRACK.INSECT_VERIFICATION = True #Verify insect track for false positives while tracking.
