@@ -21,6 +21,11 @@ __PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted
 __PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (defaul setting -> None)
 __PT.POLYTRACK.INSECT_COUNT = 0 
 
+# Deep Learning Detection models
+__PT.POLYTRACK.FLOWER_MODEL = './data/yolov8_models/yolov8l_best.pt' # Specify the path to the deep learning model to be used for flower detection.
+__PT.POLYTRACK.INSECT_MODEL = './data/yolov8_models/yolov8s_best.pt' # Specify the path to the deep learning model to be used for insect detection.
+
+
 #Displaying output video
 __PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
 __PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = True # Set TRUE to display output video. Insect tracks superimposed on the video.
@@ -105,7 +110,7 @@ __PT.POLYTRACK.LOWERES_FRAME_HEIGHT = 480 # Frame height for the low resolution 
 # Deep Leraning (YOLOv4) related parameters
 __PT.POLYTRACK.TRACKING_INSECTS = ['honeybee', 'flower','hoverfly', 'moth'] #Class labels
 __PT.POLYTRACK.YOLOV8_CONFIDENCE = 0.15 # Minimum confidence for a detection
-__PT.POLYTRACK.NEW_INSECT_CONFIDENCE = 0.7 # Non-maximum suppression threshold
+__PT.POLYTRACK.NEW_INSECT_CONFIDENCE = 0.6 # Non-maximum suppression threshold
 __PT.POLYTRACK.DL_IOU_THRESHOLD = 0.2 # IoU for a detection
 __PT.POLYTRACK.BS_DL_IOU_THRESHOLD = 0.01 # IoU for a detection
 __PT.POLYTRACK.MAX_TOTAL_SIZE = 50 # Maximum number of detections per frame

@@ -22,8 +22,6 @@ from absl.flags import FLAGS
 
 TrackInsect = InsectTracker(pt_cfg.POLYTRACK.INPUT_DIR)
 LowResProcessor = LowResMode()
-
-
 compressed_video =pt_cfg.POLYTRACK.COMPRESSED_VIDEO
 
 

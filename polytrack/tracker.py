@@ -10,8 +10,9 @@ from polytrack.config import pt_cfg
 from polytrack.general import cal_dist
 
 
-model = YOLO('./data/yolov8_models/yolov8s_best.pt')
-class_names = model.names
+model_flowers = YOLO(pt_cfg.POLYTRACK.FLOWER_MODEL)
+model_insects = YOLO(pt_cfg.POLYTRACK.INSECT_MODEL)
+class_names = model_insects.names
 
 
 class DL_Detections():
@@ -25,44 +26,56 @@ class DL_Detections():
 
         return None
 
-    def __run_deep_learning(self, _frame, detect_flowers: bool) -> np.ndarray:
-            """
-            Runs deep learning model on the input frame to detect flowers or insects.
+    def __run_deep_learning(self, _frame,detect_flowers: bool) -> np.ndarray:
+        """
+        Runs deep learning model on the input frame to detect flowers or insects.
 
-            Args:
-                _frame (np.ndarray): Input frame to run the model on.
-                detect_flowers (bool): If True, detects flowers. If False, detects insects.
+        Args:
+            _frame (np.ndarray): Input frame to run the model on.
+            detect_flowers (bool): If True, detects flowers. If False, detects insects.
 
-            Returns:
-                np.ndarray: Array of detections in the format [xmin, ymin, xmax, ymax, class, confidence].
-            """
+        Returns:
+            np.ndarray: Array of detections in the format [xmin, ymin, xmax, ymax, class, confidence].
+        """
 
-            # More info: https://docs.ultralytics.com/modes/predict/#inference-arguments
+        # More info: https://docs.ultralytics.com/modes/predict/#inference-arguments
 
-            # Set the classes to detect based on the input parameter
-            if detect_flowers:
-                classes_to_detect = self.flower_class
-            else:
-                classes_to_detect = self.insect_classes
+        # Set the classes to detect based on the input parameter
+        if detect_flowers:
+            classes_to_detect = self.flower_class
+            yolov8_model = model_flowers
 
-            # Run the model on the input frame with the specified parameters
-            results = model.predict(source=_frame, conf=self.yolov8_confidence, show=False, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
+        else:
+            classes_to_detect = self.insect_classes
+            yolov8_model = model_insects
+            
 
-            # Extract the classes, confidence scores, and bounding boxes from the results
-            classes = results[0].boxes.cls
-            conf = results[0].boxes.conf
-            boxes = results[0].boxes.xyxy
+        results = yolov8_model.predict(source=_frame, conf=self.yolov8_confidence, show=False, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
+        detections = self._decode_DL_results(results)
 
-            # Create array in the format [xmin, ymin, xmax, ymax, class, confidence]
-            detections = np.zeros((len(classes), 6))
-            detections[:, 0] = boxes[:, 0]
-            detections[:, 1] = boxes[:, 1]
-            detections[:, 2] = boxes[:, 2]
-            detections[:, 3] = boxes[:, 3]
-            detections[:, 4] = classes
-            detections[:, 5] = conf
+        return detections
+    
 
-            return detections
+    def _decode_DL_results(self, _results: np.ndarray) -> np.ndarray:
+        
+        # Extract the classes, confidence scores, and bounding boxes from the results
+        _results_cpu = _results[0].boxes.cpu()
+        classes = _results_cpu.cls
+        conf = _results_cpu.conf
+        boxes = _results_cpu.xyxy
+
+        # Create array in the format [xmin, ymin, xmax, ymax, class, confidence]
+        detections = np.zeros((len(classes), 6))
+        detections[:, 0] = boxes[:, 0]
+        detections[:, 1] = boxes[:, 1]
+        detections[:, 2] = boxes[:, 2]
+        detections[:, 3] = boxes[:, 3]
+        detections[:, 4] = classes
+        detections[:, 5] = conf
+
+        return detections
+
+
 
     def __get_classes_to_detect(self, detect_flowers: bool) -> list:
             """

@@ -48,10 +48,6 @@ def evaluate_flowers(_foraging_flowers):
     return _current_flower
 
 
-
-
-
-
 def update_visit_num(_flower_current, _insect_num,_insect_tracks):
     if np.isnan(_flower_current):
         _visit_number = np.nan
