@@ -2,36 +2,38 @@
 
 ## Introduction
 
-Polytrack is designed to track multiple species of insect pollinators in complex dynamic environments and to monitor their pollination behaviour. It uses a combination of foreground-background segmentation and deep learning-based object detection for tracking. Polytrack is capable of indentifying and recording insect-flower interactions for pollination monitoring.  
+Polytrack is designed to track multiple species of insect pollinators in diverse natural habitats or outdoor agricultural settings, monitoring their pollination behaviour in real-time. To achieve this, Polytrack uses a combination of foreground-background segmentation and deep learning-based object detection for accurate tracking.
 
-> ### New in this version:
-> - Ultralytics YOLOv8 based object detection model for improved tracking and easier implementation.
-> - Seperate YOLOv8 models for insect tracking and flower tracking.
-> - Simplified workflow.
-> - Ability to reconstruct tracks from motion compression based videos [Beta!].
+### About this version
+ This version of Polytrack (v3) will be continuously monitored and updated to incorporate new features and implement bug fixes. For previous versions of this software associated with publications, please refer to the repositories [Polytrack2.0](https://github.com/malikaratnayake/Polytrack2.0) and [Polytrack v1](https://github.com/malikaratnayake/Polytrack_v1).
+
+### What's New
+
+- **Enhanced object detection and streamlined integration:** Now powered by Ultralytics YOLOv8 for improved tracking and easier implementation.
+- **Specialized models for targeted tracking:** Offers separate YOLOv8 models for insect tracking and flower tracking, tailored to specific use cases.
+- **Simplified workflow:** A more intuitive and efficient user experience.
+- **Motion compression video track reconstruction:** Explore the ability to reconstruct tracks from motion compression-based videos (currently in beta).
 
 ## Installation and Dependencies
 
-Polytrack uses OpenCV for image processing and Ultralytics YOLOv8 for deep learning-based object detection. Dependencies related to this code is provided in `requirements.txt` and `environment_polytrack.yml` files.
+Polytrack utilizes OpenCV for image processing and Ultralytics YOLOv8 for deep learning-based object detection. Dependencies related to this code are provided in the requirements.txt and environment_polytrack.yml files.
 
 ### Training YOLOv8 Object detection model 
 
-Polytrack uses a YOLOv8 object detection model to accuratly detect insects and flowers in the video. Polytrack comes with an option to use seperate YOLOv8 models for insect and flower detection. This enables use of existing annoted datasets with Polytrack. For more information on how to train YOLv8 model, please refer to the YOLOv8 tutorials below. 
+Polytrack uses a YOLOv8 object detection model to accurately detect insects and flowers in videos. It offers the option to use separate YOLOv8 models for insect and flower detection, enabling the use of existing annotated datasets. For more information on training YOLOv8 models, please refer to the YOLOv8 tutorials below.
 
 - [How to Train YOLOv8 Object Detection on a Custom Dataset](https://blog.roboflow.com/how-to-train-yolov8-on-a-custom-dataset/)
 - [Model Training with Ultralytics YOLO](https://docs.ultralytics.com/modes/train/)
 
-Alternatively, you can downloaded pretrained YOLOv8 model for detecting four insect types (Honeybee, Syrphids, Lepidoptera and Vespids) and strawberry flowers [here](https://drive.google.com/drive/folders/1HR-dEtR69Rl_2Su5Dk06OGpXLXWYFL2v?usp=sharing). This dataset is associated with the articles published in [International Journal of Computer Vision](https://link.springer.com/article/10.1007/s11263-022-01715-4).
-
-
+Alternatively, you can download a pre-trained YOLOv8 model for detecting four insect types (Honeybee, Syrphids, Lepidoptera, and Vespids) and strawberry flowers [here.](https://drive.google.com/drive/folders/1HR-dEtR69Rl_2Su5Dk06OGpXLXWYFL2v?usp=sharing). This model is associated with the research article [Spatial monitoring and insect behavioural analysis using computer vision for precision pollination](https://link.springer.com/article/10.1007/s11263-022-01715-4) and the [Spatial monitoring and insect behavioural analysis dataset](https://doi.org/10.26180/21533760).
 
 ## Usage
 
-Code related to the core functionality of the Polytrack algorithm is in the folder "polytrack" of this repository.
+Code related to the core functionality of the Polytrack algorithm is located in the folder `polytrack` within this repository.
 
-Tracking parameters and working derectories of the code can be specified in the file "./polytrack/config.py". The user has the option of specifying a single input video or collection of videos. Descriptions related to the tracking parameters are defined alongside the parameter value.
+ Tracking parameters and working directories for the code can be specified in the file `./polytrack/config.py`. Users have the option to specify either a single input video or a collection of videos. Descriptions of each tracking parameter are provided alongside its corresponding value.
 
-After declaring relevant parameters, navigate to the root folder of the repository and run use the following command to run Polytrack.
+ After declaring the relevant parameters, navigate to the root folder of the repository and use the following command to execute Polytrack:
 
 ```
 python PolyTrack.py 
@@ -39,14 +41,14 @@ python PolyTrack.py
 
 ## Output
 
-Polytrack will output following files related to tracking. The output directory can be in the config file.
+Polytrack will output the following tracking-related files. The output directory can be specified in the config file.
 
-* Insect movement tracks with flower visit information (One track per each detected insect).
-* Snapshot of detected insects (For species verfication, if required).
-* Flower tracks.
-* Final position of flowers (For visualisations).
-
-In addition to the above metioned files, user can select the option to output the tracking video in the config file. This will output a video that contains only the instances where an insect being tracked. 
+* Insect movement tracks with flower visit information (one track per detected insect)
+* Snapshots of detected insects (for species verification, if required)
+* Flower tracks
+* Final positions of flowers (for visualisations)
+  
+In addition to the files mentioned above, users can choose to output a tracking video by selecting the appropriate option in the `config.py`` file. This video will include only the instances where an insect is being tracked.
 
 
 ## Contact
@@ -55,4 +57,11 @@ If there are any inquiries, please don't hesitate to contact me at Malika DOT Ra
  
 ## References
  
-The YOLOv8 component of this repository was adopted from [Model Training with Ultralytics YOLO](https://docs.ultralytics.com/modes/train/).
+[1] The YOLOv8 component of this repository was adopted from [Model Training with Ultralytics YOLO](https://docs.ultralytics.com/modes/train/).
+
+[2] Ratnayake, M. N., Amarathunga, D. C., Zaman, A., Dyer, A. G., & Dorin, A. (2023). [Spatial monitoring and insect behavioural analysis using computer vision for precision pollination.](https://rdcu.be/c0BsR) International Journal of Computer Vision, 131(3), 591-606.
+
+[3] Ratnayake, M. N., Dyer, A. G., & Dorin, A. (2021). [Towards computer vision and deep learning facilitated pollination monitoring for agriculture.](https://openaccess.thecvf.com/content/CVPR2021W/AgriVision/html/Ratnayake_Towards_Computer_Vision_and_Deep_Learning_Facilitated_Pollination_Monitoring_for_CVPRW_2021_paper.html) In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (pp. 2921-2930).
+
+[4] Ratnayake, M. N., Dyer, A. G., & Dorin, A. (2021). [Tracking individual honeybees among wildflower clusters with computer vision-facilitated pollinator monitoring.](https://doi.org/10.1371/journal.pone.0239504) Plos one, 16(2), e0239504.
+

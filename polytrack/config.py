@@ -11,14 +11,14 @@ pt_cfg                           = __PT
 # POLYTRACK options
 __PT.POLYTRACK                 = edict()
 
-__PT.POLYTRACK.INPUT          = '/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/cam_3_N_video_20210308_122000' # File location of the input video file (If only a single video needs to be processed)
-__PT.POLYTRACK.INPUT_DIR      = '/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/bees-edge/unprocessed/' # Specify the directory of the input video files 
-__PT.POLYTRACK.COMPRESSED_VIDEO  = False
-__PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video type
+__PT.POLYTRACK.INPUT          = './data/video/cam_3_N_video_20210308_122000' # File location of the input video file (If only a single video needs to be processed)
+__PT.POLYTRACK.INPUT_DIR      = './data/video/bees-edge/unprocessed/' # Specify the directory of the input video files 
+__PT.POLYTRACK.COMPRESSED_VIDEO  = False # Set TRUE if the input video is motion compressed (beta).
+__PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video extension
 __PT.POLYTRACK.CONTINUOUS_VIDEO = True # For processing multiple video files - TRUE, if video files are sequencial
 __PT.POLYTRACK.OUTPUT         = './data/output/' # Output directory
-__PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted frooutputm the video file name (defaul setting -> None)
-__PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (defaul setting -> None)
+__PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted from the video file name (default setting -> None)
+__PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (default setting -> None)
 __PT.POLYTRACK.INSECT_COUNT = 0 
 
 # Deep Learning Detection models
@@ -27,14 +27,14 @@ __PT.POLYTRACK.INSECT_MODEL = '/Users/mrat0010/Documents/GitHub/Polytrack_WIP/da
 
 
 #Displaying output video
-__PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
+__PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a separate window.
 __PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = True # Set TRUE to display output video. Insect tracks superimposed on the video.
 __PT.POLYTRACK.VIDEO_OUTPUT_WIDTH    = 1280 # Width of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_HEIGHT   = 720 # Height of the output frame.
-__PT.POLYTRACK.VIDEO_OUTPUT_SETUP    = False # Initialisation parameter
+__PT.POLYTRACK.VIDEO_OUTPUT_SETUP    = False # Initialization parameter
 
 #Saving output video and graphs
-__PT.POLYTRACK.VIDEO_WRITER         = 'DIVX' #Set the video writer
+__PT.POLYTRACK.VIDEO_WRITER         = 'DIVX' #Set the video writer codec
 __PT.POLYTRACK.SAVE_TRACK_FRAME     = False #Set TRUE to record a video with insect tracks
 __PT.POLYTRACK.SAVE_VIDEO_OUTPUT    = True #Set TRUE to record output video
 __PT.POLYTRACK.PLOT_GRAPH           = False #Set TRUE to save the insect trajectories as PNGs
