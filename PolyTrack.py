@@ -1,5 +1,5 @@
-#from __future__ import print_function
-import os
+#!/
+
 import time
 import sys
 from polytrack.record import record_track, complete_tracking, setup_video_save
@@ -8,17 +8,10 @@ from polytrack.flowers import track_flowers
 from polytrack.general import *
 from polytrack.tracker import  InsectTracker, LowResMode
 import cv2
-import numpy as np
 from datetime import datetime
 from absl import app
-from absl import app, flags, logging
 from absl.flags import FLAGS
 
-# flags.DEFINE_string('input', pt_cfg.POLYTRACK.INPUT_DIR, 'path to input video directory')
-# flags.DEFINE_string('extension', pt_cfg.POLYTRACK.VIDEO_EXT, 'Video extension of the input video')
-# flags.DEFINE_string('output', pt_cfg.POLYTRACK.OUTPUT, 'path to output folder')
-# flags.DEFINE_boolean('show_video', pt_cfg.POLYTRACK.SHOW_VIDEO_OUTPUT, 'Show video output')
-#flags.DEFINE_boolean('save_video', pt_cfg.POLYTRACK.SAVE_VIDEO_OUTPUT, 'Save video output')
 
 TrackInsect = InsectTracker(pt_cfg.POLYTRACK.INPUT_DIR)
 LowResProcessor = LowResMode()
@@ -72,9 +65,6 @@ def main(_argv):
 
         video_start_frame = act_nframe
 
-        #nframe = 14400
-        #vid.set(1, nframe)
-
         while True:
             return_value, frame = vid.read()
             if frame is not None:
@@ -82,34 +72,25 @@ def main(_argv):
                 act_nframe = TrackInsect.map_frame_number(nframe, compressed_video)
 
                 if (compressed_video and nframe in frame_in_video) or (not compressed_video and nframe % pt_cfg.POLYTRACK.FLOWER_UPDATE_FREQUENCY == 0):
-                    # print('Updating flower positions', nframe)
                     track_flowers(act_nframe, frame)
                 else:
                     pass
 
-                # idle = False # Force the idle mode off
                 idle = LowResProcessor.check_idle(nframe, predicted_position, compressed_video)
-                # insectsBS =  BS_Detector.get_bs_detection(bg_sub_frame)
-                # insectsBS =  foreground_changes(bg_sub_frame ,width, height, act_nframe, idle)
 
                 possible_insects = LowResProcessor.process_frame(frame, compressed_video, idle)
 
 
 
-                # associated_det_BS, associated_det_DL, missing,new_insect = track(frame, predicted_position, insectsBS)
                 if possible_insects:
                     associated_det_BS, associated_det_DL, missing, new_insect = TrackInsect.track(compressed_video, frame, nframe,  predicted_position)
-                # print(nframe, act_nframe,associated_det_BS, associated_det_DL, missing,new_insect)
                 
                 act_nframe, idle, new_insect = LowResProcessor.prepare_to_track(act_nframe, vid, idle, new_insect, video_start_frame)
                 for_predictions = record_track(frame, act_nframe,associated_det_BS, associated_det_DL, missing, new_insect, idle)
                 predicted_position = predict_next(for_predictions)
 
-                #print(nframe, len(insectsBS), new_insect, for_predictions)
-                
 
                 fps = round(nframe/ (time.time() - start_time_py),2)
-                #print(str(nframe) + ' out of ' + str(total_frames) + ' frames processed | ' + str(fps) + ' FPS | Tracking Mode:  '+ str(get_tracking_mode(idle)) , end = "\r")
                 print(str(nframe) + ' out of ' + str(total_frames) + ' frames processed | ' + str(fps) +' FPS | Tracking Mode:  '+ str(get_tracking_mode(idle)) +'        ' , end = '\r') 
  
      
@@ -135,15 +116,11 @@ def main(_argv):
     processing_text.close() 
 
 
-
-
-
 if __name__ == '__main__':
-    # try:
-    app.run(main)
+    try:
+        app.run(main)
 
-    # except:
-    #     complete_tracking([])
-    #     # save_flowers()
-    #     sys.exit(0)
+    except:
+        complete_tracking([])
+        sys.exit(0)
 

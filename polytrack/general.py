@@ -129,10 +129,15 @@ def assign_insect_num(_current_time, insect_count):
 
 def assign_datapoint_name():
 
-    day = int(pt_cfg.POLYTRACK.CURRENT_VIDEO_DETAILS[2].day)
+    # day = int(pt_cfg.POLYTRACK.CURRENT_VIDEO_DETAILS[2].day)
+    # cam = int(pt_cfg.POLYTRACK.CURRENT_VIDEO_DETAILS[0])
+
+    day = str(pt_cfg.POLYTRACK.CURRENT_VIDEO_DETAILS[2]).replace("-", "")
     cam = int(pt_cfg.POLYTRACK.CURRENT_VIDEO_DETAILS[0])
 
-    dp_name = cam*100+day
+    dp_name = 'cam' + str(cam) + '_' + str(day)
+
+    # dp_name = cam*100+day
 
     return dp_name
 

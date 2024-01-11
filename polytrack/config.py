@@ -11,19 +11,19 @@ pt_cfg                           = __PT
 # POLYTRACK options
 __PT.POLYTRACK                 = edict()
 
-__PT.POLYTRACK.INPUT          = './data/video/cam_3_N_video_20210308_122000' # File location of the input video file (If only a single video needs to be processed)
-__PT.POLYTRACK.INPUT_DIR      = './data/video/bees-edge/unprocessed/' # Specify the directory of the input video files 
+__PT.POLYTRACK.INPUT          = '/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/cam_3_N_video_20210308_122000' # File location of the input video file (If only a single video needs to be processed)
+__PT.POLYTRACK.INPUT_DIR      = '/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/bees-edge/unprocessed/' # Specify the directory of the input video files 
 __PT.POLYTRACK.COMPRESSED_VIDEO  = False
 __PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video type
 __PT.POLYTRACK.CONTINUOUS_VIDEO = True # For processing multiple video files - TRUE, if video files are sequencial
-__PT.POLYTRACK.OUTPUT         = './data/output/unprocessed_out/' # Output directory
+__PT.POLYTRACK.OUTPUT         = './data/output/' # Output directory
 __PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted frooutputm the video file name (defaul setting -> None)
 __PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (defaul setting -> None)
 __PT.POLYTRACK.INSECT_COUNT = 0 
 
 # Deep Learning Detection models
-__PT.POLYTRACK.FLOWER_MODEL = './data/yolov8_models/yolov8l_best.pt' # Specify the path to the deep learning model to be used for flower detection.
-__PT.POLYTRACK.INSECT_MODEL = './data/yolov8_models/yolov8s_best.pt' # Specify the path to the deep learning model to be used for insect detection.
+__PT.POLYTRACK.FLOWER_MODEL = '/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/yolov8_models/yolov8l_best.pt' # Specify the path to the deep learning model to be used for flower detection.
+__PT.POLYTRACK.INSECT_MODEL = '/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/yolov8_models/yolov8s_best.pt' # Specify the path to the deep learning model to be used for insect detection.
 
 
 #Displaying output video

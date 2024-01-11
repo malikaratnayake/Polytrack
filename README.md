@@ -6,39 +6,40 @@ Polytrack is designed to track multiple species of insect pollinators in complex
 
 > ### New in this version:
 > - Ultralytics YOLOv8 based object detection model for improved tracking and easier implementation.
-> - Ability to reconstruct tracks from motion compression based videos.
+> - Seperate YOLOv8 models for insect tracking and flower tracking.
 > - Simplified workflow.
+> - Ability to reconstruct tracks from motion compression based videos [Beta!].
 
-## Dependencies
+## Installation and Dependencies
 
-Polytrack uses OpenCV for image processing and Ultralytics YOLOv8 for deep learning-based object detection. Dependencies related to this code is provided in requirements.txt and environment_polytrack.yml files.
+Polytrack uses OpenCV for image processing and Ultralytics YOLOv8 for deep learning-based object detection. Dependencies related to this code is provided in `requirements.txt` and `environment_polytrack.yml` files.
 
-## Pre-trained weights for YOLOv4
+### Training YOLOv8 Object detection model 
 
-Pre-trained weights for YOLOv4 can be downloaded from [here](https://drive.google.com/drive/folders/1-7-h1ohnKV6fAPCNMv6LPTJ23DMd9izh?usp=sharing). 
+Polytrack uses a YOLOv8 object detection model to accuratly detect insects and flowers in the video. Polytrack comes with an option to use seperate YOLOv8 models for insect and flower detection. This enables use of existing annoted datasets with Polytrack. For more information on how to train YOLv8 model, please refer to the YOLOv8 tutorials below. 
 
-Rename the weights file to custom.weights and copy and paste it into the "data" folder of this repository.
+- [How to Train YOLOv8 Object Detection on a Custom Dataset](https://blog.roboflow.com/how-to-train-yolov8-on-a-custom-dataset/)
+- [Model Training with Ultralytics YOLO](https://docs.ultralytics.com/modes/train/)
 
-Use the following commands to convert the darkflow weights to Tensorflow. The pre-trained weights were trained on honeybee and strawberry flower images. Please make sure "./data/classes/custom.name" file contains the correct names of the classes (i.e. honeybee, flower, hoverfly and moth)
- 
-```
-python save_model.py --weights ./data/custom.weights --output ./checkpoints/custom-416 --input_size 416 --model yolov4 
-```
+Alternatively, you can downloaded pretrained YOLOv8 model for detecting four insect types (Honeybee, Syrphids, Lepidoptera and Vespids) and strawberry flowers [here](https://drive.google.com/drive/folders/1HR-dEtR69Rl_2Su5Dk06OGpXLXWYFL2v?usp=sharing). This dataset is associated with the articles published in [International Journal of Computer Vision](https://link.springer.com/article/10.1007/s11263-022-01715-4).
 
-## Running the software
+
+
+## Usage
 
 Code related to the core functionality of the Polytrack algorithm is in the folder "polytrack" of this repository.
 
 Tracking parameters and working derectories of the code can be specified in the file "./polytrack/config.py". The user has the option of specifying a single input video or collection of videos. Descriptions related to the tracking parameters are defined alongside the parameter value.
 
 After declaring relevant parameters, navigate to the root folder of the repository and run use the following command to run Polytrack.
+
 ```
 python PolyTrack.py 
 ```
 
 ## Output
 
-Polytrack will output following files related to tracking. The optput directory can be in the config file.
+Polytrack will output following files related to tracking. The output directory can be in the config file.
 
 * Insect movement tracks with flower visit information (One track per each detected insect).
 * Snapshot of detected insects (For species verfication, if required).
@@ -48,11 +49,10 @@ Polytrack will output following files related to tracking. The optput directory 
 In addition to the above metioned files, user can select the option to output the tracking video in the config file. This will output a video that contains only the instances where an insect being tracked. 
 
 
-
 ## Contact
 
 If there are any inquiries, please don't hesitate to contact me at Malika DOT Ratnayake AT monash DOT edu.
  
 ## References
  
-The YOLOv4 component of this repository was adopted from [darknet repository](https://github.com/AlexeyAB/darknet) by AlexeyAB and [yolov4-custom-functions](https://github.com/theAIGuysCode/yolov4-custom-functions) by the AIGuysCode.
+The YOLOv8 component of this repository was adopted from [Model Training with Ultralytics YOLO](https://docs.ultralytics.com/modes/train/).
