@@ -16,7 +16,7 @@ __PT.POLYTRACK.INPUT_DIR      = './data/video/Ratnayake2023_processed/' # Specif
 __PT.POLYTRACK.COMPRESSED_VIDEO  = True
 __PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video type
 __PT.POLYTRACK.CONTINUOUS_VIDEO = False # For processing multiple video files - TRUE, if video files are sequencial
-__PT.POLYTRACK.OUTPUT_DIR     = './data/output/Ratnayake2023_processed/' # Output directory
+__PT.POLYTRACK.OUTPUT_DIR     = './data/output/Ratnayake2023_processed_CV4A/' # Output directory
 __PT.POLYTRACK.OUTPUT         = None # Automatically updated by the algorithm.
 __PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted frooutputm the video file name (defaul setting -> None)
 __PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (defaul setting -> None)
@@ -25,7 +25,7 @@ __PT.POLYTRACK.INSECT_COUNT = 0
 # Deep Learning Detection models
 __PT.POLYTRACK.FLOWER_MODEL = './data/yolov8_models/yolov8l_best.pt' # Specify the path to the deep learning model to be used for flower detection.
 __PT.POLYTRACK.INSECT_MODEL = './data/yolov8_models/yolov8s_best.pt' # Specify the path to the deep learning model to be used for insect detection.
-__PT.POLYTRACK.INSECT_MODEL_LARGE = './data/yolov8_models/yolov8l_best.pt' # Specify the path to the heavy/large version of deep learning model used for insect detection (if applicable). If unavailable, set to None.
+__PT.POLYTRACK.INSECT_MODEL_LARGE = './data/yolov8_models/yolov8s_best.pt' # Specify the path to the heavy/large version of deep learning model used for insect detection (if applicable). If unavailable, set to None.
 
 #Displaying output video
 __PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
