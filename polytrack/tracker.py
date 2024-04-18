@@ -175,7 +175,7 @@ class BS_Detections:
         return _detections
     
     def process_fgbg_output(self, _fgmask) -> np.ndarray:
-        _median = cv2.medianBlur(_fgmask,9)
+        _median = cv2.medianBlur(_fgmask,3)
         _kernel = np.ones((5,5),np.uint8)
         
         _eroded_frame = cv2.erode(_median,_kernel,iterations = 1)
@@ -183,8 +183,7 @@ class BS_Detections:
         # Dilate
         _processed_frame = cv2.dilate(threshed_diff,_kernel,iterations = 1)
 
-        # cv2.imshow('frame',_processed_frame)
-
+    
         return _processed_frame
     
     def calculate_diff(self, _frame):
@@ -194,8 +193,6 @@ class BS_Detections:
             diff = cv2.absdiff(_bg_frame, self.prev_frame)
             # Convert to grayscale
             
-
-
             # # Cut off pixels that did not have "enough" movement. This is now a 2D array of just 1s and 0s
             _, threshed_diff = cv2.threshold(src=diff, thresh=100 , maxval=255, type=cv2.THRESH_BINARY)
             gray_frame = cv2.dilate(threshed_diff, kernel=np.ones((5, 5)))

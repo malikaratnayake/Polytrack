@@ -25,7 +25,7 @@ __PT.POLYTRACK.INSECT_COUNT = 0
 # Deep Learning Detection models
 __PT.POLYTRACK.FLOWER_MODEL = './data/yolov8_models/yolov8l_best.pt' # Specify the path to the deep learning model to be used for flower detection.
 __PT.POLYTRACK.INSECT_MODEL = './data/yolov8_models/yolov8s_best.pt' # Specify the path to the deep learning model to be used for insect detection.
-__PT.POLYTRACK.INSECT_MODEL_LARGE = './data/yolov8_models/yolov8s_best.pt' # Specify the path to the heavy/large version of deep learning model used for insect detection (if applicable). If unavailable, set to None.
+__PT.POLYTRACK.INSECT_MODEL_LARGE = './data/yolov8_models/yolov8l_best.pt' # Specify the path to the heavy/large version of deep learning model used for insect detection (if applicable). If unavailable, set to None.
 
 #Displaying output video
 __PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
@@ -88,7 +88,7 @@ __PT.POLYTRACK.FILTER_TRACKS_VERIFY_FRAMES = 20 # Number of frames considered fo
 
 
 #Foreground background detection related parameters
-__PT.POLYTRACK.MAX_BG_CHANGES = 1 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
+__PT.POLYTRACK.MAX_BG_CHANGES = 3 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
 __PT.POLYTRACK.MIN_INSECT_AREA = 5 # Minimum area covered by an insect (pixels)
 __PT.POLYTRACK.MAX_INSECT_AREA = 4750 # Maximum area covered by an insect (pixels)
 
