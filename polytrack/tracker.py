@@ -10,6 +10,7 @@ from polytrack.utilities import Utilities
 import random
 # from polytrack.general import cal_dist
 
+downscale_factor = 1
 
 model_flowers = YOLO(pt_cfg.POLYTRACK.FLOWER_MODEL)
 model_insects = YOLO(pt_cfg.POLYTRACK.INSECT_MODEL)
@@ -31,6 +32,31 @@ class DL_Detections():
         self.insect_classes = self.__get_classes_to_detect(detect_flowers=False)
 
         return None
+    
+    def remove_black_border(self, frame):
+        # Convert frame to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Apply a binary threshold to get a binary image
+        _, binary = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+
+        # Find contours
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Find the largest contour (which corresponds to the black border)
+        if contours:
+            largest_contour = max(contours, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(largest_contour)
+            
+            # Crop the frame to remove the black border
+            frame_cropped = frame[y:y+h, x:x+w]
+            
+            # Return cropped frame and top-left coordinates relative to original frame
+            return frame_cropped, (x, y)
+        else:
+            # No contours found, return original frame and coordinates (0, 0)
+            return frame, (0, 0)
+    
 
     def __run_deep_learning(self, _frame, audit_frame,detect_flowers: bool) -> np.ndarray:
             """
@@ -42,26 +68,41 @@ class DL_Detections():
 
             Returns:
                 np.ndarray: Array of detections in the format [xmin, ymin, xmax, ymax, class, confidence].
+
+
             """
 
+            # Preprocess the frame to remove the border consisting of black pixels
+            # _frame_orderless, _coords = self.remove_black_border(_frame)
+            # cv2.imshow('frame_bl',_frame_orderless)
+            # print("frame shape", _frame_orderless.shape, _coords)
+
+
             # More info: https://docs.ultralytics.com/modes/predict/#inference-arguments
+
 
             # Set the classes to detect based on the input parameter
             if detect_flowers:
                 classes_to_detect = self.flower_class
                 yolov8_model = model_flowers
 
-            elif audit_frame:
-                classes_to_detect = self.insect_classes
-                yolov8_model = model_insects_large
+            # elif audit_frame:
+            #     classes_to_detect = self.insect_classes
+            #     yolov8_model = model_insects_large
+                
 
             else:
                 classes_to_detect = self.insect_classes
                 yolov8_model = model_insects
+                # results = yolov8_model.predict(source=_frame_orderless, conf=self.yolov8_confidence, show=True, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
+                # cv2.imshow('frame',_frame)
+
                 
+            # print(self.yolov8_confidence, self.iou_threshold, classes_to_detect)
 
             results = yolov8_model.predict(source=_frame, conf=self.yolov8_confidence, show=False, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
             detections = self._decode_DL_results(results)
+            print(detections)
 
             return detections
     
@@ -153,6 +194,13 @@ class BS_Detections:
     min_area = pt_cfg.POLYTRACK.MIN_INSECT_AREA
     max_area = pt_cfg.POLYTRACK.MAX_INSECT_AREA
     new_insect_confidence = pt_cfg.POLYTRACK.NEW_INSECT_CONFIDENCE
+    prev_frame = None
+    prev_frame0 = None
+    dilate_kernel_size = 8
+    # dilation_kernel = np.ones((dilate_kernel_size, dilate_kernel_size))
+    downscaled_kernel_size = int(dilate_kernel_size / downscale_factor)
+    dilation_kernel = np.ones((downscaled_kernel_size, downscaled_kernel_size))
+    movement_threshold = 120
     
 
     def __init__(self) -> None:
@@ -212,16 +260,26 @@ class BS_Detections:
     
     def __run_bs(self, _frame) -> np.ndarray:
 
-        # _fgmask = self.calculate_diff(_frame)
+        if self.prev_frame is None:
+            self.prev_frame = _frame
 
-        # if _fgmask is None:
-        _fgmask = self.fgbg.apply(_frame, learningRate=0.1)
+        # Compute pixel difference between consecutive frames 
+        diff = cv2.absdiff(_frame, self.prev_frame)
 
-        _processed_frame = self.process_fgbg_output(_fgmask)
-        
-        # cv2.imshow('frame',_processed_frame)
+        # Convert to grayscale
+        gray_frame = cv2.dilate(diff, kernel=self.dilation_kernel)
 
-        _contours, _ = cv2.findContours(_processed_frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # Cut off pixels that did not have "enough" movement. This is now a 2D array of just 1s and 0s
+        _, threshed_diff = cv2.threshold(src=gray_frame, thresh=self.movement_threshold, maxval=255, type=cv2.THRESH_BINARY)
+
+        # Dilate
+        dilated_frame = cv2.dilate(threshed_diff, kernel=self.dilation_kernel)
+
+        mask = cv2.medianBlur(dilated_frame, 31)
+
+        _contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        self.prev_frame = _frame
 
         return _contours
     
@@ -233,6 +291,9 @@ class BS_Detections:
 
         for c in contours:
             center_coord, _box_dims, _ = cv2.minAreaRect(c)
+            center_coord = [int(num * downscale_factor) for num in center_coord]
+            _box_dims = [int(num * downscale_factor) for num in _box_dims]
+            
             _area = _box_dims[0] * _box_dims[1]
 
             if (_area > min_area) and (_area<max_area):
@@ -261,6 +322,7 @@ class InsectTracker(DL_Detections, BS_Detections):
         # if self.compressed_video:
         self.video_frame_num, self.actual_frame_num, self.full_frame_num = None, None, None
         self.actual_nframe = None
+        self.fx = self.fy = 1 / downscale_factor
         # else:
         #     pass
 
@@ -328,11 +390,28 @@ class InsectTracker(DL_Detections, BS_Detections):
     
     def preprocess_frame(self, __frame, _nframe: int):
 
-        if _nframe in self.full_frame_num:
-            self.last_full_frame = __frame
-            _bs_frame = __frame
+        if downscale_factor == 1:
+            # Downscale factor of 1 really just means no downscaling at all
+            downscaled_frame = cv2.cvtColor(__frame,  cv2.COLOR_BGR2GRAY)
         else:
-            _bs_frame = cv2.add(cv2.absdiff(__frame, self.last_full_frame), __frame)
+            downscaled_frame = cv2.cvtColor(cv2.resize(__frame, dsize=None, fx=self.fx, fy=self.fy),  cv2.COLOR_BGR2GRAY) # what if gray scale and then resize
+            
+
+        if _nframe in self.full_frame_num:
+            self.last_full_frame = downscaled_frame
+            # _bs_frame = __frame
+            _bs_frame = downscaled_frame
+        else:
+            # Convert the frame to grayscale
+
+  
+            
+
+            diff_frame = cv2.absdiff(downscaled_frame, self.last_full_frame)
+            _bs_frame = cv2.add(downscaled_frame, diff_frame)
+
+
+        
 
         return _bs_frame
 
@@ -366,13 +445,18 @@ class InsectTracker(DL_Detections, BS_Detections):
             dl_predictions = np.zeros(shape=(0,3))
             for pred in np.arange(len(bs_missing_insects)):
                 dl_predictions = np.vstack([dl_predictions,([row for row in predictions if bs_missing_insects[pred] == row[0]])])
-                
-            _dl_detections = self.get_deep_learning_detection(_dl_frame, audit_frame ,detect_flowers=False)
+
+            if (_nframe not in self.full_frame_num):
+
+                _dl_detections = self.get_deep_learning_detection(_dl_frame, audit_frame ,detect_flowers=False)
+
+            else:
+                _dl_detections = []
             
             dl_associated_detections, dl_missing_insects, potential_new_insects = self.__process_detections(_dl_detections, dl_predictions, True)
 
             if potential_new_insects.any():
-                new_insects = self.__verify_new_insects(_frame, potential_new_insects, self.last_bs_associated_detections)
+                new_insects = self.__verify_new_insects(_frame, potential_new_insects, bs_associated_detections, _bs_detections) # was last associated bs detections
             else:
                 new_insects = []
 
@@ -474,16 +558,74 @@ class InsectTracker(DL_Detections, BS_Detections):
             
         
         return _predicted
+    
+    def remove_detected_insects(self, associated_detections, all_detections):
+    # Extract the elements to compare from A and B
+
+        if len(associated_detections) > 0:
+            associated_detections_comp = associated_detections[:, 1:4]
+            print("assoc_detect", associated_detections_comp)
+
+        if len(all_detections) > 0:
+            all_detections_comp = all_detections[:, 0:3]
+
+        
+            print("all_detect",all_detections_comp)
+        
+        # # Create a set of tuples for quick lookup of elements from A in B
+        # set_elements_to_compare_all_detections = set(all_detections_comp)
+        
+        # # Filter B to remove duplicates based on comparisons with elements from A
+        # filtered_detections = np.array([b for b in all_detections if tuple(all_detections_comp[:2].tolist()) not in associated_detections_comp.tolist()])
+        
+        return None
+    
+    def calculate_enclosing_circle_properties(self, bs_detections):
+        result = []
+        for row in bs_detections:
+            x, y, area = row
+            
+            # Calculate side length of the square (bounding box)
+            side_length = math.sqrt(area)
+            
+            # Calculate radius of the minimum enclosing circle
+            r = (side_length / 2) * math.sqrt(2)
+            
+            # Append (x, y, r) to result list
+            result.append([x, y, r])
+        
+        # Convert result list to NumPy array
+        result_array = np.array(result)
+        
+        return result_array
 
 
 
 
-    def __verify_new_insects(self, _frame, potential_new_insects: np.ndarray, bs_associated_detections: np.ndarray) -> list:
+    def __verify_new_insects(self, _frame, potential_new_insects: np.ndarray, bs_associated_detections: np.ndarray, bs_detections: np.ndarray) -> list:
 
         if bs_associated_detections is None:
             bs_associated_detections = []
 
+        if bs_detections is None:
+            bs_detections = []
+
+
+        # Compare the coordinates of BS detected insects with the coordinates of DL detected insects and removes possible coordinates that may relate to the same insect
         potential_new_insects = self.__remove_duplicate_detections(potential_new_insects, bs_associated_detections)
+
+        # print(bs_associated_detections)
+        # print(bs_detections.shape)
+
+        # print("len bs associated detections", len(bs_associated_detections))
+
+        # if len(bs_associated_detections)>0:
+
+        # self.remove_detected_insects(bs_associated_detections, bs_detections)
+        # circle_data = self.calculate_enclosing_circle_properties(bs_detections)
+        # print("circle data", circle_data)
+
+    
         
         _low_confidence = []
         for _dl_detection in np.arange(len(potential_new_insects)):            
@@ -513,11 +655,24 @@ class InsectTracker(DL_Detections, BS_Detections):
             _crop = cv2.flip(_black_frame, -1)
 
             _confidence = self.new_insect_confidence[_insect_type]
+
+            # cv2.imshow('frame',_crop)
             
 
             _new_insect_results = model_insects_large.predict(source=_crop, conf=_confidence, show=False, verbose = False, iou = 0.5, classes = [_insect_type], augment = True, imgsz = (640,640))
 
             _new_insect_detections = self._decode_DL_results(_new_insect_results)
+
+            # # Compare _new_insect_detections with circle_data. If x,y coordinates are within the circle_data, keep the detection.
+            # for _new_insect_detection in _new_insect_detections:
+            #     for _circle_data in circle_data:
+            #         if TrackUtilities.cal_dist(_new_insect_detection[0], _new_insect_detection[1], _circle_data[0], _circle_data[1]) < _circle_data[2]:
+            #             pass
+            #         else:
+            #             _low_confidence.append(_dl_detection)
+                        
+
+
 
 
             # if potential_new_insects[_dl_detection][4] < self.new_insect_confidence:

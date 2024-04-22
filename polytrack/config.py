@@ -90,7 +90,7 @@ __PT.POLYTRACK.FILTER_TRACKS_VERIFY_FRAMES = 20 # Number of frames considered fo
 #Foreground background detection related parameters
 __PT.POLYTRACK.MAX_BG_CHANGES = 3 # Maximum number of foreground changes (blobs) allowed. (If actual FG changes > Max value; YOLO will be used for the detection)
 __PT.POLYTRACK.MIN_INSECT_AREA = 5 # Minimum area covered by an insect (pixels)
-__PT.POLYTRACK.MAX_INSECT_AREA = 4750 # Maximum area covered by an insect (pixels)
+__PT.POLYTRACK.MAX_INSECT_AREA = 7000 # Maximum area covered by an insect (pixels)
 
 #Analysis Parameters
 __PT.POLYTRACK.FACING_NORTH = True # Adjust the recordings based on the direction camera faces (by default the recordings will be facing north)
