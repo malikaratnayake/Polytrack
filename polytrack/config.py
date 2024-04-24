@@ -29,7 +29,7 @@ __PT.POLYTRACK.INSECT_MODEL_LARGE = './data/yolov8_models/yolov8l_best.pt' # Spe
 
 #Displaying output video
 __PT.POLYTRACK.SHOW_TRACK_FRAME      = False # Set TRUE to display insect tracks in a seperate window.
-__PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = True # Set TRUE to display output video. Insect tracks superimposed on the video.
+__PT.POLYTRACK.SHOW_VIDEO_OUTPUT     = False # Set TRUE to display output video. Insect tracks superimposed on the video.
 __PT.POLYTRACK.VIDEO_OUTPUT_WIDTH    = 1280 # Width of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_HEIGHT   = 720 # Height of the output frame.
 __PT.POLYTRACK.VIDEO_OUTPUT_SETUP    = False # Initialisation parameter
@@ -77,7 +77,7 @@ __PT.POLYTRACK.INSECT_VERIFICATION_THRESHOLD_CUM_DISTANCE = 20 # Minimum total d
 __PT.POLYTRACK.INSECT_VERIFICATION_MIN_BS = 0.15 #Minimum number of background subtraction based detections a track should contain to bypass the verification process. 
 __PT.POLYTRACK.NEW_INSECT_MODE = False # Automatically updated by the algorithm.
 
-__PT.POLYTRACK.DL_DARK_SPOTS = True # Mark the positions of false positive YOLO detections for later reference
+__PT.POLYTRACK.DL_DARK_SPOTS = False # Mark the positions of false positive YOLO detections for later reference
 __PT.POLYTRACK.DL_DARK_SPOTS_RADIUS = 25 # The concering radius around the false positive YOLO detection. 
 __PT.POLYTRACK.RECORDED_DARK_SPOTS = [] # Automatically updated by the algorithm.
 

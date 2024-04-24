@@ -261,6 +261,9 @@ class Recorder(VideoWriter, FlowerRecorder):
         else:
             details_frame = None
 
+        # print("FGBG: ", _associated_det_BS)
+        # print("DL: ", _associated_det_DL)
+
         
         self.record_BS_detections(_nframe, details_frame, _associated_det_BS, latest_flower_positions)
         self.record_DL_detections(_nframe, details_frame, _associated_det_DL, latest_flower_positions)

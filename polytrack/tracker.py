@@ -73,9 +73,9 @@ class DL_Detections():
             """
 
             # Preprocess the frame to remove the border consisting of black pixels
-            # _frame_orderless, _coords = self.remove_black_border(_frame)
-            # cv2.imshow('frame_bl',_frame_orderless)
-            # print("frame shape", _frame_orderless.shape, _coords)
+            _frame_orderless, _coords = self.remove_black_border(_frame)
+            cv2.imshow('frame_bl',_frame_orderless)
+            print(_frame_orderless.shape[0:2])
 
 
             # More info: https://docs.ultralytics.com/modes/predict/#inference-arguments
@@ -97,12 +97,11 @@ class DL_Detections():
                 # results = yolov8_model.predict(source=_frame_orderless, conf=self.yolov8_confidence, show=True, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
                 # cv2.imshow('frame',_frame)
 
-                
             # print(self.yolov8_confidence, self.iou_threshold, classes_to_detect)
 
             results = yolov8_model.predict(source=_frame, conf=self.yolov8_confidence, show=False, verbose = False, iou = self.iou_threshold, classes = classes_to_detect)
             detections = self._decode_DL_results(results)
-            print(detections)
+            # print(detections)
 
             return detections
     
