@@ -12,7 +12,7 @@ class EventLogger:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         # console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
-        console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] %(msg)s"))
+        console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
 
         log_filename =os.path.join(_log_directory, os.path.basename(_log_directory)) +'_log.log'
         print(log_filename)
@@ -21,7 +21,7 @@ class EventLogger:
         file_handler = logging.FileHandler(log_filename)
         file_handler.setLevel(logging.DEBUG)
         # file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
-        file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] %(msg)s"))
+        file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
 
         logger.handlers.clear()
         logger.addHandler(console_handler)

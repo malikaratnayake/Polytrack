@@ -11,10 +11,10 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 from polytrack.InsectTracker import InsectTracker
-from polytrack.InsectRecorder import Recorder
+from polytrack.InsectRecorder0 import Recorder
 from polytrack.EventLogger import EventLogger
 from polytrack.FlowerTracker import FlowerTracker
-from polytrack.FlowerRecorder import FlowerRecorder
+from polytrack.FlowerRecorder0 import FlowerRecorder
 
 LOGGER = logging.getLogger()
 
