@@ -28,6 +28,7 @@ class VideoWriter:
         self.video_source = video_source
         self.output_video_dimensions = output_video_dimensions
         self.tracking_insects = tracking_insects
+        self.latest_flower_positions = []
 
         if self.save_video_output or self.show_video_output:
             self.trajectory_frame = np.zeros((input_video_dimensions[1],input_video_dimensions[0],3), np.uint8)
@@ -45,15 +46,36 @@ class VideoWriter:
         LOGGER.info(f"Video output saved to: {output_filename}")
 
         return output_video
+    
+    def update_flower_positions(self,
+                                flower_positions: np.ndarray,
+                                flower_border: int) -> None:
+        
+        self.latest_flower_positions = flower_positions
+        self.flower_border = flower_border
+        self.updated_flower_positions_recorded = False
+
+        return None
 
     
     def process_video_output(self, 
-                            frame: np.ndarray, 
+                            frame: np.ndarray,
+                            nframe: int, 
                             mapped_frame_num: int,
                             fgbg_detections: np.ndarray, 
                             dl_detections: np.ndarray, 
                             new_insect_detections: np.ndarray, 
                             detections_for_predictions: np.ndarray):
+        
+        try:
+            if len(self.latest_flower_positions) > 0 and self.updated_flower_positions_recorded is False:
+                for flower in self.latest_flower_positions:
+                    _flower_num, _center_x, _center_y, _radius = int(flower[0]), int(flower[1]), int(flower[2]), int(flower[3])+self.flower_border
+                    cv2.circle(self.trajectory_frame, (_center_x, _center_y), _radius, (0,0,255), 4)
+                    cv2.putText(self.trajectory_frame, 'F' +str(_flower_num), (_center_x+_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
+                self.updated_position_recorded = True
+        except Exception as e:
+            LOGGER.error(f'Error while updating flower positions: {e}')
 
         for record in fgbg_detections:
             _insect_num, _x, _y = record
@@ -72,7 +94,7 @@ class VideoWriter:
             _insect_num, _x0, _y0, _x1, _y1 = detection
             cv2.line(self.trajectory_frame, (int(_x1),int(_y1)),(int(_x0),int(_y0)),self.track_colour(_insect_num),2)
 
-        cv2.putText(frame, 'Frame: ' +str(mapped_frame_num), (20, 20), cv2.FONT_HERSHEY_DUPLEX , 0.8, (255,255,255), 1, cv2.LINE_AA)
+        cv2.putText(frame, f"Compressed Frame: {str(nframe)} | Uncompressed Frame: {str(mapped_frame_num)}", (20, 20), cv2.FONT_HERSHEY_DUPLEX , 0.8, (255,255,255), 1, cv2.LINE_AA)
 
         output_frame = cv2.add(frame, self.trajectory_frame)
 
@@ -134,7 +156,7 @@ class Recorder(VideoWriter):
                             save_video_output = save_video_output,
                             video_codec = video_codec) 
         
-        self.insect_tracks = pd.DataFrame(columns=['nframe', 'insect_num', 'x0', 'y0', 'area', 'species', 'confidence', 'status', 'model'])
+        self.insect_tracks = pd.DataFrame(columns=['nframe', 'insect_num', 'x0', 'y0', 'area', 'species', 'confidence', 'status', 'model', 'flower'])
         self.edge_pixels = edge_pixels
         self.width, self.height, self.fps = input_video_dimensions[0], input_video_dimensions[1], framerate
         self.max_occlusions = max_occlusions
@@ -165,7 +187,7 @@ class Recorder(VideoWriter):
         detections_for_predictions = self.get_insect_positions_for_predictions(mapped_frame_num)
 
         if self.show_video_output or self.save_video_output:
-            self.process_video_output(frame, mapped_frame_num, fgbg_detections, dl_detections, new_insect_detections, detections_for_predictions)
+            self.process_video_output(frame, nframe, mapped_frame_num, fgbg_detections, dl_detections, new_insect_detections, detections_for_predictions)
         
         return detections_for_predictions
         
@@ -186,9 +208,10 @@ class Recorder(VideoWriter):
             _confidence = np.nan
             _status = 'In'
             _model = 'FGBG'
+            _flower = np.nan
             recorded_info.append([_insect_num, _x, _y,])
             
-            insect_record_BS = [mapped_frame_num, _insect_num, _x, _y, _area, _species, _confidence, _status, _model]
+            insect_record_BS = [mapped_frame_num, _insect_num, _x, _y, _area, _species, _confidence, _status, _model, _flower]
             self.insect_tracks.loc[len(self.insect_tracks)] = insect_record_BS
 
         return recorded_info
@@ -209,9 +232,10 @@ class Recorder(VideoWriter):
             _confidence = (detection[5])
             _status = 'In'
             _model = 'DL'
+            _flower = np.nan
             recorded_info.append([_insect_num, _x, _y,])
             
-            insect_record_DL = [mapped_frame_num, _insect_num, _x, _y, _area, _species, _confidence, _status, _model]
+            insect_record_DL = [mapped_frame_num, _insect_num, _x, _y, _area, _species, _confidence, _status, _model, _flower]
             self.insect_tracks.loc[len(self.insect_tracks)] = insect_record_DL
 
         return recorded_info
@@ -229,9 +253,10 @@ class Recorder(VideoWriter):
             _species = self.insect_tracks['species'][self.insect_tracks.loc[self.insect_tracks['insect_num'] == _insect_num, 'species'].last_valid_index()]
             _confidence = np.nan
             _status = self.evaluate_missing_insect(mapped_frame_num, _insect_num)
+            _flower = np.nan
             _model = np.nan
             
-            insect_record_missing = [mapped_frame_num, _insect_num, _x, _y, _area, _species, _confidence, _status, _model]
+            insect_record_missing = [mapped_frame_num, _insect_num, _x, _y, _area, _species, _confidence, _status, _model, _flower]
             self.insect_tracks.loc[len(self.insect_tracks)] = insect_record_missing 
 
         return None
@@ -272,11 +297,12 @@ class Recorder(VideoWriter):
             _status = 'In'
             _model = 'DL'
             _insect_num = self.generate_insect_num(nframe, _species)
+            _flower = np.nan
             recorded_info.append([_insect_num, _species ,_x, _y,])
 
             self.manual_verification(frame,_insect_num, [_x, _y], self.tracking_insects[int(_species)])
         
-            insect_record_new = [mapped_frame_num, _insect_num, _x, _y, _area, _species, _confidence, _status, _model]
+            insect_record_new = [mapped_frame_num, _insect_num, _x, _y, _area, _species, _confidence, _status, _model, _flower]
             self.insect_tracks.loc[len(self.insect_tracks)] = insect_record_new
 
         return recorded_info
@@ -390,22 +416,15 @@ class Recorder(VideoWriter):
         return current_insect_positions
     
 
-    def complete_tracking(self, _predicted_position):
+    def save_inprogress_tracks(self, 
+                               predicted_position: np.ndarray):
         
-        print('======== Tracking Completed ======== ')
-        _tracking_insects = [int(i[0]) for i in _predicted_position]
+        _tracking_insects = [int(i[0]) for i in predicted_position]
 
-        
-        
         for _insect in _tracking_insects:
             self.save_track(_insect)
+            LOGGER.info(f'Insect track saved: {_insect}')
 
-        # save_flowers()
-        
-        # if pt_cfg.POLYTRACK.RECORD_ENTRY_EXIT_FLOWER: self.save_flower_entry_exit()
-
-
-        self.insect_tracks.to_csv(str(self.output_directory)+'tracks.csv', sep=',')
 
     
 

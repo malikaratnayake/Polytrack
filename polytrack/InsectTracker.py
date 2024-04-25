@@ -1,284 +1,18 @@
-import os, sys
 import cv2
 import numpy as np
-import math
 from ultralytics import YOLO
-import csv
-from scipy.optimize import linear_sum_assignment
-from scipy.linalg import block_diag
-from polytrack.config import pt_cfg
-from polytrack.utilities import Utilities
-
 import logging
+from polytrack.TrackingMethods import TrackingMethods
 
 
 LOGGER = logging.getLogger()
-
-
-class ExtendedKalmanFilter:
-    def __init__(self, initial_state, initial_covariance, process_noise, observation_noise):
-        self.state = initial_state
-        self.covariance = initial_covariance
-        self.process_noise = process_noise
-        self.observation_noise = observation_noise
-    
-    def predict(self, dt):
-        # State transition function (non-linear)
-        x, y, vx, vy = self.state
-        predicted_state = np.array([
-            x + vx * dt,
-            y + vy * dt,
-            vx,
-            vy
-        ])
-        
-        # State transition Jacobian (partial derivatives of state transition function)
-        F = np.array([
-            [1, 0, dt, 0],
-            [0, 1, 0, dt],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1]
-        ])
-        
-        # Predict next state using non-linear state transition
-        self.state = predicted_state
-        self.covariance = np.dot(F, np.dot(self.covariance, F.T)) + self.process_noise
-    
-    def update(self, measurement):
-        # Measurement function (non-linear)
-        x, y, vx, vy = self.state
-        predicted_measurement = np.array([x, y])
-        
-        # Measurement Jacobian (partial derivatives of measurement function)
-        H = np.array([
-            [1, 0, 0, 0],
-            [0, 1, 0, 0]
-        ])
-        
-        # Kalman gain calculation
-        S = np.dot(H, np.dot(self.covariance, H.T)) + self.observation_noise
-        K = np.dot(self.covariance, np.dot(H.T, np.linalg.inv(S)))
-        
-        # Update state estimate using non-linear measurement update
-        self.state = self.state + np.dot(K, (measurement - predicted_measurement))
-        self.covariance = np.dot((np.eye(self.covariance.shape[0]) - np.dot(K, H)), self.covariance)
-
-
-
-class KalmanFilter:
-    def __init__(self, initial_state, initial_covariance, process_noise_covariance, observation_noise_covariance):
-        self.state = initial_state
-        self.covariance = initial_covariance
-        self.process_noise_covariance = process_noise_covariance
-        self.observation_noise_covariance = observation_noise_covariance
-    
-    def predict(self, F):
-        # Predict the next state using the state transition matrix F
-        self.state = np.dot(F, self.state)
-        # Predict the next covariance
-        self.covariance = np.dot(F, np.dot(self.covariance, F.T)) + self.process_noise_covariance
-    
-    def update(self, measurement, H):
-        # Kalman gain calculation
-        K = np.dot(self.covariance, np.dot(H.T, np.linalg.inv(np.dot(H, np.dot(self.covariance, H.T)) + self.observation_noise_covariance)))
-        # Update the state estimate
-        self.state = self.state + np.dot(K, (measurement - np.dot(H, self.state)))
-        # Update the covariance matrix
-        self.covariance = np.dot((np.eye(self.covariance.shape[0]) - np.dot(K, H)), self.covariance)
-
-
-
-class Tracking_Methods(KalmanFilter, ExtendedKalmanFilter):
-
-    def __init__(self,
-                 prediction_method: str) -> None:
-        
-        self.prediction_method = prediction_method
-
-        pass
-    
-    def calculate_distance(self, x: float, y: float, px: float, py: float) -> float:
-
-        # Optimized calculation using vectorized operations
-        squared_distance = np.square(x - px) + np.square(y - py)
-
-        # Return distance as float for improved accuracy (if needed)
-        return np.sqrt(squared_distance)
-    
-    def Hungarian_method(self, _detections, _predictions):
-        num_detections, num_predictions = len(_detections), len(_predictions)
-        mat_shape = max(num_detections, num_predictions)
-        hun_matrix = np.full((mat_shape, mat_shape),0)
-        for p in np.arange(num_predictions):
-            for d in np.arange(num_detections):
-                hun_matrix[p][d] = self.calculate_distance(_predictions[p][1],_predictions[p][2],_detections[d][0],_detections[d][1])
-        
-        row_ind, col_ind = linear_sum_assignment(hun_matrix)
-
-        return col_ind
-
-
-    
-    def map_frame_number(self, nframe: int, compressed_video:bool) -> int:
-
-        if compressed_video:
-            if nframe in self.video_frame_num:
-                _frame_number_pos = self.video_frame_num.index(nframe)
-                self.actual_nframe = self.actual_frame_num[_frame_number_pos]
-            else:
-                self.actual_nframe += 1
-
-        else:
-            self.actual_nframe = nframe
-
-        return self.actual_nframe
-    
-
-    def get_compression_details(self,
-                                video_filepath: str,
-                                info_filename: str) -> tuple:
-                
-        if info_filename == '': info_filename = None
-
-        if info_filename is not None:
-            compression_details_file = os.path.join(video_filepath, os.path.splitext(info_filename)[0])
-        else:
-            compression_details_file = os.path.splitext(video_filepath)[0] +'_video_info.csv'
-
-
-        with open(compression_details_file, "r", encoding="utf-8") as csv_file:
-            csv_reader = csv.reader(csv_file)
-
-            video_frame_number_list = []
-            actual_frame_number_list = []
-            full_frame_number_list = []
-
-            next(csv_reader)  # Skip the first row
-
-            for row in csv_reader:
-                video_frame_number_list.append(int(row[0]))
-                actual_frame_number_list.append(int(row[1]))
-                if row[2] != '':
-                    full_frame_number_list.append(int(row[2]))
-
-        return video_frame_number_list, actual_frame_number_list, full_frame_number_list
-    
-
-    def predict_next(self, for_predictions):
-        predicted = []
-
-        if self.prediction_method == 'Kalman':
-
-            # Kalman filter setup parameters
-            initial_state = np.array([0, 0, 0, 0])  # Initial state: [x, y, vx, vy]
-            initial_covariance = np.eye(4) * 1000  # Initial covariance matrix
-            process_noise_covariance = np.eye(4) * 0.1  # Process noise covariance (increased for robustness)
-            observation_noise_covariance = np.eye(2) * 30  # Observation noise covariance (increased for robustness)
-            
-            # State transition matrix (constant velocity model)
-            F = np.array([[1, 0, 1, 0],
-                        [0, 1, 0, 1],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1]])
-            
-            # Measurement matrix (to extract position from state)
-            H = np.array([[1, 0, 0, 0],
-                        [0, 1, 0, 0]])
-            
-            # Create a Kalman filter instance
-            kalman_filter = KalmanFilter(initial_state, initial_covariance, process_noise_covariance, observation_noise_covariance)
-            
-            for insect in for_predictions:
-                insect_num = insect[0]
-                x0, y0 = float(insect[1]), float(insect[2])  # Position at t-1
-                x1, y1 = float(insect[3]), float(insect[4])  # Position at t-2
-                
-                # Calculate initial velocity (assuming constant velocity model)
-                vx = x0 - x1
-                vy = y0 - y1
-                
-                # Set initial state for the Kalman filter
-                kalman_filter.state = np.array([x0, y0, vx, vy])
-                
-                # Predict next state using Kalman filter (1 time step prediction)
-                kalman_filter.predict(F)
-                
-                # Get predicted position from the updated state estimate
-                predicted_x, predicted_y = kalman_filter.state[0], kalman_filter.state[1]
-                
-                # Append predicted result to output list
-                predicted.append([insect_num, predicted_x, predicted_y])
-        
-
-        elif self.prediction_method == 'ExtendedKalman':
-            
-            # Extended Kalman filter setup parameters
-            initial_state = np.array([0, 0, 0, 0])  # Initial state: [x, y, vx, vy]
-            initial_covariance = np.eye(4) * 1000  # Initial covariance matrix
-            process_noise = np.eye(4) * 0.01  # Process noise covariance
-            
-            # Increase process noise for velocity to adapt to changes
-            process_noise[2, 2] = 0.1  # Variance of velocity in x-direction
-            process_noise[3, 3] = 0.1  # Variance of velocity in y-direction
-            
-            observation_noise = np.eye(2) * 0.1  # Observation noise covariance
-            
-            # Create an Extended Kalman filter instance
-            ekf = ExtendedKalmanFilter(initial_state, initial_covariance, process_noise, observation_noise)
-            
-            for insect in for_predictions:
-                insect_num = insect[0]
-                x0, y0 = float(insect[1]), float(insect[2])  # Position at t-1
-                x1, y1 = float(insect[3]), float(insect[4])  # Position at t-2
-                
-                # Calculate initial velocity (assuming constant velocity model)
-                vx = x0 - x1
-                vy = y0 - y1
-                
-                # Set initial state for the Extended Kalman filter [x, y, vx, vy]
-                ekf.state = np.array([x0, y0, vx, vy])
-                
-                # Time step (assuming constant time interval between measurements)
-                dt = 1.0  # Adjust this based on the time interval between measurements
-                
-                # Predict next state using Extended Kalman filter
-                ekf.predict(dt)
-                
-                # Get predicted position from the updated state estimate
-                predicted_x, predicted_y = ekf.state[0], ekf.state[1]
-                
-                # Append predicted result to output list
-                predicted.append([insect_num, predicted_x, predicted_y])
-
-        else:
-
-            for _insect in for_predictions:
-                _insect_num = _insect[0]
-                _x0 = float(_insect[1])
-                _y0 = float(_insect[2])
-                _x1 = float(_insect[3])
-                _y1 = float(_insect[4])
-                
-                    
-                Dk1 = np.transpose([_x0, _y0])
-                Dk2 = np.transpose([_x1, _y1])
-                A = [[2,0,-1,0],  [0,2,0,-1]]
-                Dkc = np.concatenate((Dk1,Dk2))
-                
-        #         print(Dk1,Dk2,Dkc)
-                Pk = np.dot(A,Dkc.T)
-                
-                predicted.append([_insect_num, Pk[0], Pk[1]])
-
-        return predicted
-
-
 
 
 class DL_Detector():
 
     def __init__(self,
                 insect_detector: YOLO,
+                model_insects_large: YOLO,
                 insect_iou_threshold: float,
                 dl_detection_confidence: float
                 ) -> None:
@@ -287,6 +21,7 @@ class DL_Detector():
         self.insect_classes = [0,2,3]
         self.insect_iou_threshold = insect_iou_threshold
         self.dl_detection_confidence =dl_detection_confidence
+        self.model_insects_large = YOLO(model_insects_large)
 
         return None
     
@@ -341,10 +76,51 @@ class DL_Detector():
 
         return processed_detections
     
+    def DL_verify_new_insects(self,
+                            frame: np.ndarray,
+                            potential_new_insects: np.ndarray) -> list:
+        
+        low_confidence = []
+
+        for dl_detection in np.arange(len(potential_new_insects)):
+                
+            mid_x = int(potential_new_insects[dl_detection][0])
+            mid_y = int(potential_new_insects[dl_detection][1])
+            insect_type = int(potential_new_insects[dl_detection][3])
+
+            x0 = max(0, int(mid_x - 160))
+            y0 = max(0, int(mid_y - 160))
+            x1 = min(int(mid_x + 160), 1920)
+            y1 = min(int(mid_y + 160), 1080)
+
+            croped_frame = frame[y0:y1, x0:x1]
+
+            black_frame = np.zeros((640,640,3), np.uint8)
+            black_frame[200:200+croped_frame.shape[0], 200:200+croped_frame.shape[1]] = croped_frame
+
+            crop = cv2.flip(black_frame, -1)
+
+            dl_detection_confidences=[0.7,0.9,0.5, 0.5]
+
+            confidence = dl_detection_confidences[insect_type]
+
+            new_insect_results = self.model_insects_large.predict(source=crop, conf=confidence, show=False, verbose = False, iou = 0.5, classes = [insect_type], augment = True, imgsz = (640,640))
+
+            new_insect_detections = self._decode_DL_results(new_insect_results)
+
+            if len(new_insect_detections) == 0:
+                low_confidence.append(dl_detection)
+            else:
+                pass
+    
+            new_insects = np.delete(potential_new_insects, low_confidence, axis=0)
+
+        return new_insects
+    
 
 
 
-class FGBG_Detector(Tracking_Methods):
+class FGBG_Detector(TrackingMethods):
 
     prev_frame = None
     last_full_frame = None
@@ -477,6 +253,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         
         DL_Detector.__init__(self,
                              insect_detector = insect_detector,
+                             model_insects_large = model_insects_large,
                              insect_iou_threshold = insect_iou_threshold,
                              dl_detection_confidence = dl_detection_confidence)
         
@@ -495,9 +272,6 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         self.max_interframe_travel = max_interframe_travel
         self.compressed_video = compressed_video
         self.iou_threshold = iou_threshold
-        self.model_insects_large = YOLO(model_insects_large)
-        self.tracks = []
-        self.insect_list = []
         
         return None
     
@@ -525,14 +299,14 @@ class InsectTracker(DL_Detector, FGBG_Detector):
             for pred in np.arange(len(fgbg_missing_insects)):
                 dl_predictions = np.vstack([dl_predictions,([row for row in self.predictions if fgbg_missing_insects[pred] == row[0]])])
 
-            if (nframe not in self.full_frame_num):
-                dl_detections = self.run_dl_detector(frame)
-            else:
-                dl_detections = []
+            # if (nframe not in self.full_frame_num):
+            dl_detections = self.run_dl_detector(frame)
+            # else:
+            #     dl_detections = []
 
             dl_associated_detections, dl_missing_insects, potential_new_insects = self.process_detections(dl_detections, dl_predictions, dl_detections=True)
 
-            if potential_new_insects.any():
+            if potential_new_insects.any() and (nframe not in self.full_frame_num):
                 new_insects = self.verify_new_insects(frame, potential_new_insects, fgbg_associated_detections, fg_detections)
             else:
                 new_insects = []
@@ -542,32 +316,6 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
 
         return (fgbg_associated_detections, dl_associated_detections, dl_missing_insects, new_insects)
-    
-
-    def compound_detections(self,
-                            fgbg_associated_detections: np.ndarray,
-                            dl_associated_detections: np.ndarray,
-                            new_insects: np.ndarray) -> np.ndarray:
-        
-        detections = np.zeros(shape=(0,3))
-
-        for _insect in fgbg_associated_detections:
-           detections = np.vstack([detections, _insect[0:3]])
-
-        for _insect in dl_associated_detections:
-            detections = np.vstack([detections, _insect[0:3]])
-
-        for _insect in new_insects:
-            if len(self.insect_list) > 0:
-                new_insect_id = max(self.insect_list) + 1
-            else:
-                new_insect_id = 1
-                self.insect_list.append(new_insect_id)
-
-            _insect = np.insert(_insect, 0, new_insect_id)
-            detections = np.vstack([detections, _insect[0:3]])
-              
-        return detections
 
         
 
@@ -577,50 +325,19 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                             fgbg_associated_detections: np.ndarray,
                             fg_detections: np.ndarray) -> list:
           
-          if fgbg_associated_detections is None:
-                fgbg_associated_detections = []
-    
-          if fg_detections is None:
-                fg_detections = []
-    
-          potential_new_insects = self.remove_duplicate_detections(potential_new_insects, fgbg_associated_detections)
-    
-          low_confidence = []
-          for dl_detection in np.arange(len(potential_new_insects)):
-                mid_x = int(potential_new_insects[dl_detection][0])
-                mid_y = int(potential_new_insects[dl_detection][1])
-                insect_type = int(potential_new_insects[dl_detection][3])
-    
-                x0 = max(0, int(mid_x - 160))
-                y0 = max(0, int(mid_y - 160))
-                x1 = min(int(mid_x + 160), 1920)
-                y1 = min(int(mid_y + 160), 1080)
-    
-                croped_frame = frame[y0:y1, x0:x1]
-    
-                black_frame = np.zeros((640,640,3), np.uint8)
-                black_frame[200:200+croped_frame.shape[0], 200:200+croped_frame.shape[1]] = croped_frame
-    
-                crop = cv2.flip(black_frame, -1)
+        if fgbg_associated_detections is None:
+            fgbg_associated_detections = []
 
-                dl_detection_confidences=[0.7,0.9,0.5, 0.5]
-    
-                confidence = dl_detection_confidences[insect_type]
-    
-                new_insect_results = self.model_insects_large.predict(source=crop, conf=confidence, show=False, verbose = False, iou = 0.5, classes = [insect_type], augment = True, imgsz = (640,640))
-    
-                new_insect_detections = self._decode_DL_results(new_insect_results)
-    
-                if len(new_insect_detections) == 0:
-                    low_confidence.append(dl_detection)
-                else:
-                    pass
-    
-          new_insects = np.delete(potential_new_insects, low_confidence, axis=0)
-    
-          return new_insects
-    
+        if fg_detections is None:
+            fg_detections = []
 
+        potential_new_insects = self.remove_duplicate_detections(potential_new_insects, fgbg_associated_detections)
+
+        new_insects = self.DL_verify_new_insects(frame, potential_new_insects)
+    
+        return new_insects
+    
+        
 
     def process_detections(self,
                             detections: np.array,

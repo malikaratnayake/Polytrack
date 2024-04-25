@@ -13,8 +13,6 @@ from ultralytics import YOLO
 from polytrack.InsectTracker import InsectTracker
 from polytrack.InsectRecorder import Recorder
 from polytrack.EventLogger import EventLogger
-from polytrack.FlowerTracker import FlowerTracker
-from polytrack.FlowerRecorder import FlowerRecorder
 
 LOGGER = logging.getLogger()
 
@@ -49,13 +47,7 @@ class Config:
         save_video_output: bool,
         video_codec: str,
         framerate: int,
-        prediction_method: str,
-        flower_detector: YOLO,
-        flower_iou_threshold: float,
-        flower_detection_confidence: float,
-        flower_classes: np.ndarray,
-        flower_border: int
-
+        prediction_method: str
     ) -> None:
 
         self.video_source = video_source
@@ -84,12 +76,6 @@ class Config:
         self.video_codec = video_codec
         self.framerate = framerate
         self.prediction_method = prediction_method
-        self.flower_detector = flower_detector
-        self.flower_iou_threshold = flower_iou_threshold
-        self.flower_detection_confidence = flower_detection_confidence
-        self.flower_classes = flower_classes
-        self.flower_border = flower_border
-
 
 
 
@@ -100,71 +86,102 @@ with open("config.json", "r") as f:
 
 CONFIG = Config(**__config_dict)
 
+class Reader(Thread):
+    def __init__(self,
+                 video_source: str,
+                 compressed_video: bool,
+                 reading_queue: Queue, 
+                 stop_signal: Event,
+                 info_filename: str,
+                 TrackInsects: InsectTracker,
+                 name: str):
+        super().__init__(name=name)
+        self.video_source = video_source
+        self.reading_queue = reading_queue
+        self.stop_signal = stop_signal
+        self.compressed_video = compressed_video
+        self.TrackInsects = TrackInsects
+        self.info_filename = info_filename
+
+        self.vid = cv2.VideoCapture(self.video_source)
+        LOGGER.info(f"Processing video: {self.video_source}")
+        self.nframe = 0
+
+    def run(self):
+        
+        while True:
+            try:
+                if self.stop_signal.is_set():
+                    LOGGER.info("Received stop signal. Exiting...")
+                    break
+
+                _, frame = self.vid.read()
+
+                if frame is not None:
+                    self.nframe += 1
+                    mapped_frame_num = self.TrackInsects.map_frame_number(self.nframe, compressed_video)
+                    self.reading_queue.put((frame, self.nframe, mapped_frame_num))        
+                else:
+                    self.reading_queue.put(None)
+                    self.vid.release()
+                    self.stop_signal.set()
+
+            except Empty:
+                break
 
 
 
-class TracknRecord():
+
+class TracknRecord(Thread):
 
     def __init__(self,
                  video_source: str,
                  RecordTracks: Recorder,
                  TrackInsects: InsectTracker,
-                 TrackFlowers: FlowerTracker,
-                 RecordFlowers: FlowerRecorder,
                  compressed_video: bool,
-                 info_filename: str) -> None:
-        
+                 info_filename: str,
+                 reading_queue: Queue,
+                 name: str,
+                 frames_processed_queue: Queue
+                 ) -> None:
+        super().__init__(name=name)
         self.video_source = video_source
         self.RecordTracks = RecordTracks
         self.TrackInsects = TrackInsects
-        self.TrackFlowers = TrackFlowers
-        self.RecordFlowers = RecordFlowers
         self.compressed_video = compressed_video
         self.info_filename = info_filename
-        self.vid = cv2.VideoCapture(self.video_source)
-        LOGGER.info(f"Processing video: {self.video_source}")
+        self.reading_queue = reading_queue
+        self.frames_processed_queue = frames_processed_queue
+        # self.vid = cv2.VideoCapture(self.video_source)
+        # LOGGER.info(f"Processing video: {self.video_source}")
         
 
-        if self.compressed_video:
-            _, _, self.full_frame_numbers = self.TrackInsects.get_compression_details(self.video_source, self.info_filename)
+        # if self.compressed_video:
+        #     _, actual_frame_num, _ = self.TrackInsects.get_compression_details(self.video_source, self.info_filename)
+        #     mapped_frame_num = actual_frame_num[0]
 
     def run(self) -> None:
-        nframe = 0
+        # nframe = 0
         predicted_position = []
-        flower_predictions = []
         while True:
-            _, frame = self.vid.read()
+            frame_combo = self.reading_queue.get(timeout=10)
 
-            if frame is not None:
-                nframe += 1
-                mapped_frame_num = self.TrackInsects.map_frame_number(nframe, compressed_video)
+            if frame_combo is not None:
+                frame, nframe, mapped_frame_num = frame_combo
                 fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects = self.TrackInsects.run_tracker(frame, nframe, predicted_position)
                 for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
                 predicted_position = self.TrackInsects.predict_next(for_predictions)
 
-                if nframe in self.full_frame_numbers:
-                    associated_flower_detections, missing_flowers, new_flower_detections = self.TrackFlowers.run_flower_tracker(frame, flower_predictions)
-                    flower_detections_for_predictions, latest_flower_positions = self.RecordFlowers.record_flowers(mapped_frame_num, associated_flower_detections, missing_flowers, new_flower_detections)
-                    flower_predictions = self.TrackFlowers.predict_next(flower_detections_for_predictions)
-                    self.RecordTracks.update_flower_positions(latest_flower_positions, self.RecordFlowers.flower_border)
-
-                if len(for_predictions) > 0:
-                    insect_flower_visits = self.RecordFlowers.monitor_flower_visits(for_predictions)
-                    self.RecordFlowers.record_flower_visitations(insect_flower_visits, mapped_frame_num, self.RecordTracks.insect_tracks)
-                    
-
-                if cv2.waitKey(1) & 0xFF == ord('q'): break
+                # if cv2.waitKey(1) & 0xFF == ord('q'): break
 
             else:
+                self.frames_processed_queue.put(nframe)
                 LOGGER.info("Finished processing video. Exiting...")
-                self.RecordFlowers.save_flower_tracks()
-                self.RecordTracks.save_inprogress_tracks(predicted_position)
                 break
 
-        self.vid.release()
-        cv2.destroyAllWindows()
+        
+        # cv2.destroyAllWindows()
 
-        return nframe
 
 
 
@@ -243,72 +260,79 @@ def main(config: Config):
         tracking_insects = config.tracking_insects,
         edge_pixels = config.edge_pixels)
     
-    track_flowers = FlowerTracker(
-        flower_detector = config.flower_detector,
-        flower_iou_threshold = config.flower_iou_threshold,
-        flower_detection_confidence = config.flower_detection_confidence,
-        flower_classes = config.flower_classes)
+    # track_and_record = TracknRecord(
+    #     video_source = config.video_source,
+    #     RecordTracks = record_tracks,
+    #     TrackInsects = track_insects,
+    #     compressed_video = config.compressed_video,
+    #     info_filename = config.info_filename)
+
+    reading_queue = Queue(maxsize=512)
+    frames_processed_queue = Queue(maxsize=1)
+    stop_signal = Event()
     
-    record_flowers = FlowerRecorder(
-        output_directory = output_directory,
-        flower_border = config.flower_border)
+    threads = (
+        reader_thread := Reader(
+            video_source = config.video_source,
+            compressed_video = config.compressed_video,
+            reading_queue = reading_queue,
+            stop_signal = stop_signal,
+            info_filename = config.info_filename,
+            TrackInsects = track_insects,
+            name = "Reader",
+        ),
+        tracknrecord_thread := TracknRecord(
+            video_source = config.video_source,
+            RecordTracks = record_tracks,
+            TrackInsects = track_insects,
+            compressed_video = config.compressed_video,
+            info_filename = config.info_filename,
+            reading_queue = reading_queue,
+            frames_processed_queue = frames_processed_queue,
+            name = "TracknRecord"
+        )   
     
-    track_and_record = TracknRecord(
-        video_source = config.video_source,
-        RecordTracks = record_tracks,
-        TrackInsects = track_insects,
-        TrackFlowers = track_flowers,
-        RecordFlowers = record_flowers,
-        compressed_video = config.compressed_video,
-        info_filename = config.info_filename)
+    )
+
+    for thread in threads:
+        LOGGER.info(f"Starting {thread.name}")
+        thread.start()
+
     
-    # Run the TracknRecord instance
-    frames_processed = track_and_record.run()
+    
+    while True:
+        try:
+            time.sleep(1)
+            if not any([thread.is_alive() for thread in threads]):
+                print(
+                    "All child processes appear to have finished! Exiting infinite loop..."
+                )
+                break
 
-
-
-
-    # Regularly poll to check if all threads have finished. If they haven't finished,
-    # just sleep a little and check later
-
-    # while True:
-    #     try:
-    #         time.sleep(1)
-    #         if not any([thread.is_alive() for thread in threads]):
-    #             print(
-    #                 "All child processes appear to have finished! Exiting infinite loop..."
-    #             )
-    #             break
-
-    #         print("catching up")
-
-    #         for queue, queue_name in zip(
-    #             [reading_queue, writing_queue],
-    #             ["Reading", "Writing"],
-    #         ):
-    #             print(f"{queue_name} queue size: {queue.qsize()}")
-    #     except (KeyboardInterrupt, Exception) as e:
-    #         print(
-    #             "Received KeyboardInterrupt or some kind of Exception. Setting interrupt event and breaking out of infinite loop...",
-    #         )
-    #         print(
-    #             "You may have to wait a minute for all child processes to gracefully exit!",
-    #         )
-    #         stop_signal.set()
-    #         break
+        except (KeyboardInterrupt, Exception) as e:
+            print(
+                "Received KeyboardInterrupt or some kind of Exception. Setting interrupt event and breaking out of infinite loop...",
+            )
+            print(
+                "You may have to wait a minute for all child processes to gracefully exit!",
+            )
+            stop_signal.set()
+            break
   
 
-    # for thread in threads:
-        # print(f"Joining {thread.name}")
-        # thread.join()
+    for thread in threads:
+        print(f"Joining {thread.name}")
+        thread.join()
 
     # Add any extra stats/metadata to output too
     end = time.time()
     duration_seconds = end - start
+    frames_processed = frames_processed_queue.get()
     # formatted_end_time = end.strftime("%Y-%m-%d %H:%M:%S")
     LOGGER.info(f"Finished processing at :  {datetime.fromtimestamp(end)}")
     LOGGER.info(f"Finished main() in {duration_seconds:.2f} seconds.")
     LOGGER.info(f"Processed {frames_processed} frames at {frames_processed / duration_seconds:.2f} FPS.")
+    # LOGGER.info(f"Processed {frames_processed} frames at {frames_processed / duration_seconds:.2f} FPS.")
     
 
 
@@ -338,11 +362,6 @@ if __name__ == "__main__":
     save_video_output = CONFIG.save_video_output
     video_codec = CONFIG.video_codec
     prediction_method = CONFIG.prediction_method
-    flower_detector = CONFIG.flower_detector
-    flower_iou_threshold = CONFIG.flower_iou_threshold
-    flower_detection_confidence = CONFIG.flower_detection_confidence
-    flower_classes = CONFIG.flower_classes
-    flower_border = CONFIG.flower_border
     
 
     video_source = Path(video_source)
@@ -398,14 +417,9 @@ if __name__ == "__main__":
                 "save_video_output": CONFIG.save_video_output,
                 "video_codec": CONFIG.video_codec,
                 "framerate": CONFIG.framerate,
-                "prediction_method": CONFIG.prediction_method,
-                "flower_detector" : CONFIG.flower_detector,
-                "flower_iou_threshold" : CONFIG.flower_iou_threshold,
-                "flower_detection_confidence": CONFIG.flower_detection_confidence,
-                "flower_classes" : CONFIG.flower_classes,
-                "flower_border" : CONFIG.flower_border
+                "prediction_method": CONFIG.prediction_method
+  
             }
-            
         )
         this_config = Config(**this_config_dict)
         main(this_config)

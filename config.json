@@ -24,6 +24,11 @@
     "save_video_output": true,
     "video_codec": "DIVX",
     "framerate": 30,
-    "prediction_method": "ConstantVelocity"
+    "prediction_method": "ConstantVelocity",
+    "flower_detector" : "./data/yolov8_models/yolov8l_best.pt",
+    "flower_iou_threshold" : 0.5,
+    "flower_detection_confidence": 0.1,
+    "flower_classes" : [1],
+    "flower_border" : 10
 }
 
