@@ -104,7 +104,7 @@ class DL_Detector():
             # Calculate the percentage of black pixels in the image
             black_pixel_percentage = black_pixels / (100 * 100)
 
-            if black_pixel_percentage > 0.2:
+            if black_pixel_percentage > 0.1:
                 low_confidence.append(dl_detection)
 
             else:
@@ -133,6 +133,8 @@ class DL_Detector():
                     pass
     
         new_insects = np.delete(potential_new_insects, low_confidence, axis=0)
+
+        # print(new_insects)
 
         return new_insects
     
@@ -305,7 +307,9 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                     frame: np.ndarray,
                     nframe: int,
                     predictions: np.ndarray) -> np.ndarray:
-                
+        
+        print("nframe-------------------------------------", nframe)
+        
         
         self.predictions = predictions
         
@@ -322,12 +326,38 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
         # if bool(fgbg_missing_insects) or bool(fgbg_unassociated_detections) or (len(fg_detections) > len(self.predictions)) or (len(fg_detections) == 0 and self.compressed_video) :
         if len(fgbg_missing_insects) >0  or len(fgbg_unassociated_detections)>0 or (len(fg_detections) > len(self.predictions)) or (len(fg_detections) == 0 and self.compressed_video) :
+            dl_predictions = np.zeros(shape=(0,3))
+            for pred in np.arange(len(fgbg_missing_insects)):
+                dl_predictions = np.vstack([dl_predictions,([row for row in self.predictions if fgbg_missing_insects[pred] == row[0]])])
 
+            # if (nframe not in self.full_frame_num):
             dl_detections = self.run_dl_detector(frame)
+            # else:
+            #     dl_detections = []
 
-            combined_detections = np.vstack([dl_detections, np.pad(fg_detections, ((0, 0), (0, 2)), mode='constant')])
+            print("DL Detections", dl_detections)
+            print("DL Predictions", self.predictions)
+            print("fgbg_detections", fg_detections)
 
-            dl_associated_detections, dl_missing_insects, potential_new_insects = self.process_detections(combined_detections, self.predictions, dl_detections=True)
+
+
+            fgbg_detections_padded = np.pad(fg_detections, ((0, 0), (0, 2)), mode='constant')
+
+
+            combined_detections = dl_detections
+            for fgbg_detection in fgbg_detections_padded:
+                combined_detections = np.vstack([combined_detections, fgbg_detection])
+
+
+            print("Combined Detections", combined_detections)
+
+            # dl_associated_detections, dl_missing_insects, potential_new_insects = self.process_detections(dl_detections, dl_predictions, dl_detections=True)
+
+            dl_associated_detections, dl_missing_insects, potential_new_insects = self.process_detections0(combined_detections, self.predictions, dl_detections=True)
+
+
+
+
 
             if potential_new_insects.any() and (nframe not in self.full_frame_num):
                 new_insects = self.verify_new_insects(frame, potential_new_insects, fgbg_associated_detections, fg_detections)
@@ -338,6 +368,12 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
         else:
             dl_associated_detections, dl_missing_insects, new_insects = [], [], []
+
+        # print("FGBG", fgbg_associated_detections)
+        # print("DL", dl_associated_detections)
+        # print("Missing", dl_missing_insects)
+        # print("Potential New", potential_new_insects)
+        # print("New", new_insects)
 
 
         return (fgbg_associated_detections, dl_associated_detections, dl_missing_insects, new_insects)
@@ -367,25 +403,38 @@ class InsectTracker(DL_Detector, FGBG_Detector):
     
         return new_insects
     
-    def process_detections(self,
+    def process_detections0(self,
                             detections: np.array,
                             predictions: np.array,
                             dl_detections: bool) -> tuple:
           
         if dl_detections:
             max_interframe_travel_distance = self.max_interframe_travel[0]
+            unassociated_array_length = 5
         else:
             max_interframe_travel_distance = self.max_interframe_travel[1]
+            unassociated_array_length = 3
               
+        missing_detections = []
+        unassociated_detections = np.zeros(shape=(0,unassociated_array_length))
         associated_detections = np.zeros(shape=(0,6))
 
+    
+        # assignments = self.Hungarian_method(detections, predictions)
+        # tracking_numbers = [i[0] for i in predictions]
+        # num_of_objects_tracked = len(tracking_numbers)
 
         ass= self.assign_detections_to_tracks(detections=detections,predictions=predictions, cost_threshold = max_interframe_travel_distance)
+        # print("ass: ", ass, (detections), (predictions))
 
         associated_detection_pos = []
         associated_prediction_pos = []
 
         for det_idx, pred_idx in ass:
+            # assigned_detection = detections[det_idx]
+            # assigned_prediction = predictions[pred_idx]
+            # print(f"Assign detection {det_idx} to prediction {pred_idx}")
+            # print(assigned_detection, assigned_prediction)
             _center_x, _center_y, _area, _species, _confidence = self.decode_detections(detections, det_idx)
             associated_detections = np.vstack([associated_detections,(int(predictions[pred_idx][0]),_center_x, _center_y, _area, _species, _confidence)])
             associated_detection_pos.append(det_idx)
@@ -405,22 +454,132 @@ class InsectTracker(DL_Detector, FGBG_Detector):
             missed_objects = predictions
 
 
+        # missed_objects = np.delete(predictions, np.array(associated_prediction_pos))
+
         unassociated_detections =np.array((unassociated_detections))
+
+        unassociated_detections = self.remove_duplicate_detections(unassociated_detections, associated_detections)
+
+        # Create a mask for detections with confidence less than 0.2
+        mask = unassociated_detections[:, 4] < 0.2
+
+        # Filter out detections with confidence less than 0.2
+        unassociated_detections = unassociated_detections[~mask]
+        
+
+        # print(missed_objects, "hhfkfj")
         missing_detections = [int(i[0]) for i in missed_objects]
 
-        if dl_detections:
+        print("Associated", associated_detections)
+        print("Missing", missing_detections)
+        print("Unassociated", unassociated_detections)
 
-            unassociated_detections = self.remove_duplicate_detections(unassociated_detections, associated_detections)
 
-            # Create a mask for detections with confidence less than 0.2
-            mask = unassociated_detections[:, 4] < 0.2
 
-            # Filter out detections with confidence less than 0.2
-            unassociated_detections = unassociated_detections[~mask]
-        
+
+            
+
 
         return associated_detections, missing_detections, unassociated_detections
     
+        
+
+    def process_detections(self,
+                            detections: np.array,
+                            predictions: np.array,
+                            dl_detections: bool) -> tuple:
+          
+        if dl_detections:
+            max_interframe_travel_distance = self.max_interframe_travel[0]
+            unassociated_array_length = 5
+        else:
+            max_interframe_travel_distance = self.max_interframe_travel[1]
+            unassociated_array_length = 3
+              
+        missing_detections = []
+        unassociated_detections = np.zeros(shape=(0,unassociated_array_length))
+        associated_detections = np.zeros(shape=(0,6))
+    
+        # assignments = self.Hungarian_method(detections, predictions)
+        # tracking_numbers = [i[0] for i in predictions]
+        # num_of_objects_tracked = len(tracking_numbers)
+
+        ass= self.assign_detections_to_tracks(detections=detections,predictions=predictions, cost_threshold = max_interframe_travel_distance)
+        # print("ass: ", ass, (detections), (predictions))
+
+        associated_detection_pos = []
+        associated_prediction_pos = []
+
+        for det_idx, pred_idx in ass:
+            # assigned_detection = detections[det_idx]
+            # assigned_prediction = predictions[pred_idx]
+            # print(f"Assign detection {det_idx} to prediction {pred_idx}")
+            # print(assigned_detection, assigned_prediction)
+            _center_x, _center_y, _area, _species, _confidence = self.decode_detections(detections, det_idx)
+            associated_detections = np.vstack([associated_detections,(int(predictions[pred_idx][0]),_center_x, _center_y, _area, _species, _confidence)])
+            associated_detection_pos.append(det_idx)
+            associated_prediction_pos.append(pred_idx)
+
+        
+        if len(associated_detection_pos)>0:
+            unassociated_detections = np.delete(detections, np.array(associated_detection_pos), axis = 0)
+        else:
+            unassociated_detections = detections
+
+        if len(associated_prediction_pos)>0:
+            # print("hsbfjbhbfhj", associated_prediction_pos, "jhfjhke", predictions)
+            missed_objects = np.delete(np.array(predictions), np.array(associated_prediction_pos), axis=0)
+            # print("missed_objects", missed_objects)
+        else:
+            missed_objects = predictions
+
+
+        # missed_objects = np.delete(predictions, np.array(associated_prediction_pos))
+
+        unassociated_detections =np.array((unassociated_detections))
+
+        # print(missed_objects, "hhfkfj")
+        missing_detections = [int(i[0]) for i in missed_objects]
+
+
+
+
+          
+        # # for _unassociated in (assignments[num_of_objects_tracked:]):
+        # #     unassociated_detections = np.vstack([unassociated_detections,(detections[_unassociated])])    
+
+        # print("Unassociated", unassociated_detections )   
+        # print("Assignments", assignments)
+        # print("assignments[num_of_objects_tracked:]", assignments[num_of_objects_tracked:])
+        # print("num_of_objects_tracked", num_of_objects_tracked)
+        # print("Detections", len(detections), "Predictions", len(predictions))
+
+                                  
+          
+        # for _object in np.arange(num_of_objects_tracked):
+        #     _object_num = assignments[_object]
+    
+        #     if (_object_num < len(detections)):
+        #         _center_x, _center_y, _area, _species, _confidence = self.decode_detections(detections, _object_num)
+        #         _distance_error = self.calculate_distance(_center_x,_center_y, predictions[_object][1], predictions[_object][2])
+        #         if(_distance_error > max_interframe_travel_distance):
+        #             missing_detections.append(predictions[_object][0])
+        #         else:
+        #             associated_detections = np.vstack([associated_detections,(int(predictions[_object][0]),_center_x, _center_y, _area, _species, _confidence)])
+        #             print("00000 Detection: ", detections)
+        #             detections = np.delete(detections, _object_num, axis=0)
+        #             print("1111 Detection: ", detections)
+                    
+        #     else:
+        #         missing_detections.append(predictions[_object][0])
+
+        # if dl_detections:
+        #     for detect in detections:
+        #         unassociated_detections = np.vstack([unassociated_detections,detect])
+            
+
+
+        return associated_detections, missing_detections, unassociated_detections
     
     def decode_detections(self, 
                           detections: np.ndarray, 
@@ -446,6 +605,19 @@ class InsectTracker(DL_Detector, FGBG_Detector):
             _bs_bounding_box = [_bs_detection[1], _bs_detection[2], _bs_detection[3]]
             for _dl_detection in np.arange(len(_dl_detections)):
                 _dl_bounding_box = [_dl_detections[_dl_detection][0], _dl_detections[_dl_detection][1], _dl_detections[_dl_detection][2]]
+
+                # Calculate the intersection over union considering the bounding box of the detections
+
+                # distance = self.calculate_distance(_bs_bounding_box[0], _bs_bounding_box[1], _dl_bounding_box[0], _dl_bounding_box[1])
+                # average_radius = 1.25*(math.sqrt(_bs_bounding_box[2] / math.pi)+ math.sqrt(_dl_bounding_box[2] / math.pi))
+
+                # print("Distance", distance, average_radius)
+
+
+                # if distance < average_radius:
+                #     _duplicate_detections.append(_dl_detection)
+                # else:
+                #     pass
 
                 _iou = self.calculate_iou(_bs_bounding_box, _dl_bounding_box)
                 if _iou > self.iou_threshold:
@@ -477,14 +649,23 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         x2, y2 = dl_bounding_box[0], dl_bounding_box[1]
 
         # Calculate half-widths and half-heights
+        # half_width1 = np.sqrt(bs_bounding_box[2])/2
         half_height1 = half_width1 = math.sqrt(dl_bounding_box[2] / math.pi)*1.5
         # half_width2 = np.sqrt(dl_bounding_box[2])/2
         half_height2 = half_width2 = math.sqrt(dl_bounding_box[2] / math.pi)*1.5
 
-        x1_min, y1_min = x1 - half_width1, y1 - half_height1
-        x1_max, y1_max = x1 + half_width1, y1 + half_height1
-        x2_min, y2_min = x2 - half_width2, y2 - half_height2
-        x2_max, y2_max = x2 + half_width2, y2 + half_height2
+        IMAGE_WIDTH = 1920
+        IMAGE_HEIGHT = 1080
+
+        # Calculate bounding box coordinates
+        x1_min, y1_min = max(0, x1 - half_width1), max(0, y1 - half_height1)
+        x1_max, y1_max = min(IMAGE_WIDTH, x1 + half_width1), min(IMAGE_HEIGHT, y1 + half_height1)
+        x2_min, y2_min = max(0, x2 - half_width2), max(0, y2 - half_height2)
+        x2_max, y2_max = min(IMAGE_WIDTH, x2 + half_width2), min(IMAGE_HEIGHT, y2 + half_height2)
+
+
+        # print("Bounding Box 1", x1_min, y1_min, x1_max, y1_max)
+        # print("Bounding Box 2", x2_min, y2_min, x2_max, y2_max)
 
         # Calculate intersection area
         intersection_width = max(0, min(x1_max, x2_max) - max(x1_min, x2_min))
@@ -498,5 +679,68 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         # Calculate IoU
         iou = intersection_area / union_area if union_area > 0 else 0
 
+        # print("IOU", iou, intersection_area, union_area, half_height1, half_height2)
+
+
+
         return iou
+    
+
+
+    # def intersection_over_union(self, boxA, boxB):
+    #     """
+    #     Calculate the Intersection over Union (IoU) of two bounding boxes considering all placements of boxA relative to boxB.
+
+    #     Args:
+    #         boxA: A tuple of (x_center, y_center, area) for bounding box A.
+    #         boxB: A tuple of (x_center, y_center, area) for bounding box B.
+
+    #     Returns:
+    #         The maximum IoU value as a float between 0 and 1 considering all placements of boxA relative to boxB.
+    #     """
+
+    #     # Extract width and height from area for boxA
+    #     widthA = math.sqrt(boxA[2] / math.pi)*1.5
+    #     heightA = widthA
+
+    #     widthB = math.sqrt(boxB[2] / math.pi)*1.5
+    #     heightB = widthB
+
+    #     # Define all possible placements for boxA relative to boxB (top-left, top-right, bottom-left, bottom-right)
+    #     placements = [
+    #         (boxA[0] - widthA / 2, boxA[1] - heightA / 2),
+    #         (boxA[0] + widthA / 2, boxA[1] - heightA / 2),
+    #         (boxA[0] - widthA / 2, boxA[1] + heightA / 2),
+    #         (boxA[0] + widthA / 2, boxA[1] + heightA / 2),
+    #     ]
+
+    #     # Initialize maximum IoU
+    #     max_iou = 0
+
+    #     for placement in placements:
+    #         # Calculate the intersection rectangle for this placement
+    #         xA = max(placement[0], boxB[0])
+    #         yA = max(placement[1], boxB[1])
+    #         xB = min(placement[0] + widthA / 2, boxB[0] + widthB / 2)
+    #         yB = min(placement[1] + heightA / 2, boxB[1] + heightB / 2)
+
+    #         # Compute the area of intersection rectangle
+    #         interArea = max(0, xB - xA) * max(0, yB - yA)
+
+    #         # Compute the area of both A and B
+    #         boxAArea = boxA[2]
+    #         boxBArea = boxB[2]
+
+    #         # Compute the intersection over union for this placement
+    #         iou = interArea / (boxAArea + boxBArea - interArea)
+
+    #         print("IoUssss", iou)
+
+    #         # Update maximum IoU
+    #         max_iou = max(max_iou, iou)
+
+    #     return max_iou
+
+
+
     

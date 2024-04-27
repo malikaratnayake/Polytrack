@@ -26,6 +26,7 @@ class Config:
         output_directory: str,
         max_occlusions: int,
         max_occlusions_edge: int,
+        max_occlusions_on_flower: int,
         tracking_insects: list,
         output_video_dimensions: int,
         input_video_dimensions: int,
@@ -64,6 +65,7 @@ class Config:
         self.output_directory = output_directory
         self.max_occlusions = max_occlusions
         self.max_occlusions_edge = max_occlusions_edge
+        self.max_occlusions_on_flower = max_occlusions_on_flower
         self.tracking_insects = tracking_insects
         self.output_video_dimensions = output_video_dimensions
         self.input_video_dimensions = input_video_dimensions
@@ -250,6 +252,7 @@ def main(config: Config):
         video_codec = config.video_codec,
         max_occlusions = config.max_occlusions,
         max_occlusions_edge = config.max_occlusions_edge,
+        max_occlusions_on_flower = config.max_occlusions_on_flower,
         tracking_insects = config.tracking_insects,
         edge_pixels = config.edge_pixels)
     
@@ -258,7 +261,8 @@ def main(config: Config):
             flower_detector = config.flower_detector,
             flower_iou_threshold = config.flower_iou_threshold,
             flower_detection_confidence = config.flower_detection_confidence,
-            flower_classes = config.flower_classes)
+            flower_classes = config.flower_classes,
+            prediction_method = config.prediction_method)
         
         record_flowers = FlowerRecorder(
             output_directory = output_directory,
@@ -329,6 +333,7 @@ if __name__ == "__main__":
     output_directory = CONFIG.output_directory
     max_occlusions = CONFIG.max_occlusions
     max_occlusions_edge = CONFIG.max_occlusions_edge
+    max_occlusions_on_flower = CONFIG.max_occlusions_on_flower
     tracking_insects = CONFIG.tracking_insects
     input_video_dimensions = CONFIG.input_video_dimensions
     output_video_dimensions = CONFIG.output_video_dimensions
@@ -393,6 +398,7 @@ if __name__ == "__main__":
                 "output_directory": CONFIG.output_directory,
                 "max_occlusions": CONFIG.max_occlusions,
                 "max_occlusions_edge": CONFIG.max_occlusions_edge,
+                "max_occlusions_on_flower": CONFIG.max_occlusions_on_flower,
                 "tracking_insects": CONFIG.tracking_insects,
                 "input_video_dimensions": CONFIG.input_video_dimensions,
                 "output_video_dimensions": CONFIG.output_video_dimensions,

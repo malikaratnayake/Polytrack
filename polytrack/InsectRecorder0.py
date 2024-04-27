@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import os
 import logging
+import matplotlib.pyplot as plt
 
 
 LOGGER = logging.getLogger()
@@ -141,6 +142,7 @@ class Recorder(VideoWriter):
                     video_codec: str,
                     max_occlusions: int,
                     max_occlusions_edge: int,
+                    max_occlusions_on_flower,
                     tracking_insects: list,
                     edge_pixels: int) -> None:
 
@@ -161,6 +163,7 @@ class Recorder(VideoWriter):
         self.width, self.height, self.fps = input_video_dimensions[0], input_video_dimensions[1], framerate
         self.max_occlusions = max_occlusions
         self.max_occlusions_edge = max_occlusions_edge
+        self.max_occlusions_on_flower = max_occlusions_on_flower
         self.tracking_insects = tracking_insects
         self.insect_count = 0
         self.video_frame_width, self.video_frame_height = output_video_dimensions[0], output_video_dimensions[1]
@@ -276,13 +279,19 @@ class Recorder(VideoWriter):
         
         insect_detections = self.insect_tracks[insect_position][3]
         last_detected_frame_position = self.find_last_detected_frame(insect_detections)
-        last_detected_frame, last_x, last_y, _ = insect_detections[last_detected_frame_position]
+        last_detected_frame, last_x, last_y, last_flower = insect_detections[last_detected_frame_position]
 
         last_detected_along_edge = self.check_last_detected_position(last_x, last_y)
         no_of_missing_frames = mapped_frame_num - last_detected_frame
 
         
-        if ((last_detected_along_edge is True) and (no_of_missing_frames > self.max_occlusions_edge)) or (no_of_missing_frames > self.max_occlusions):
+        if ((last_detected_along_edge is True) and (no_of_missing_frames > self.max_occlusions_edge)):
+            self.save_track(insect_position)
+
+        elif (no_of_missing_frames > self.max_occlusions) and (last_flower is None):
+            self.save_track(insect_position)
+
+        elif (no_of_missing_frames > self.max_occlusions_on_flower) and (last_flower is not None):
             self.save_track(insect_position)
         else:
             self.mission_tracks.append(insect_num)
@@ -367,25 +376,50 @@ class Recorder(VideoWriter):
         insect_num = insect_record[0]
         insect_species = insect_record[2]
         insect_track = insect_record[3]
+
+        detected_positions = len([record[1] for record in insect_track if record[1] is not None])
+        if detected_positions > 5:
+            filename = str(insect_species)+'_'+str(insect_num)
+            output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'.csv'
+
+            with open(output_filepath, 'w') as f:
+                f.write('nframe, x, y, flower\n')
+                for record in insect_track:
+                    f.write(f"{record[0]},{record[1]},{record[2]},{record[3]}\n")
+
+            # self.plot_insect_track(insect_track, insect_num, insect_species)
+
+            LOGGER.info(f'Completed tracking {insect_species}_{insect_num}. Insect track saved: {filename}')
+
+        else:
+            LOGGER.info(f'Insect {insect_species}_{insect_num} was not tracked long enough. Insect track not saved')
+            image_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+(str(insect_species)+'_'+str(insect_num)+'_img.png')
+            os.remove(image_filepath)
+
         
-        # insect_track = self.insect_tracks.loc[self.insect_tracks['insect_num'] == insect_num].reset_index()
-        # _species_num = self.insect_tracks['species'][self.insect_tracks.loc[self.insect_tracks['insect_num'] == insect_num, 'confidence'].idxmax()]
-        # _species = self.tracking_insects[int(_species_num)]
-        filename = str(insect_species)+'_'+str(insect_num)
-        output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'.csv'
-
-        with open(output_filepath, 'w') as f:
-            f.write('nframe, x, y, flower\n')
-            for record in insect_track:
-                f.write(f"{record[0]},{record[1]},{record[2]},{record[3]}\n")
-
-        # insect_track.to_csv(os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'.csv', sep=',')
-
-        LOGGER.info(f'Completed tracking {insect_species}_{insect_num}. Insect track saved: {filename}')
-        
-        # del insect_track
 
         return None
+    
+    def plot_insect_track(self,
+                            insect_track: list,
+                            insect_num: int,
+                            insect_species:str) -> None:
+        
+        x = [record[1] for record in insect_track if record[1] is not None]
+        y = [self.video_frame_height - record[2] for record in insect_track if record[2] is not None]
+
+        print(x)
+        plt.plot(x, y)
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.xlim(0, self.video_frame_width)
+        plt.ylim(0, self.video_frame_height)
+        plt.grid()
+        plt.title(str(insect_species)+'_'+str(insect_num))
+        filename = str(insect_species)+'_'+str(insect_num)
+        output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'.png'
+        plt.savefig(output_filepath)
+
 
 
     def check_last_detected_position(self, 

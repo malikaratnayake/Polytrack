@@ -145,6 +145,7 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
                 assignments.append((det_idx, pred_idx))
 
         return assignments
+    
 
 
     

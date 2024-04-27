@@ -89,10 +89,11 @@ class FlowerTracker(DL_Flower_Detector, TrackingMethods):
                 flower_detector: str,
                 flower_iou_threshold: float,
                 flower_detection_confidence: float,
-                flower_classes: np.ndarray) -> None:
+                flower_classes: np.ndarray,
+                prediction_method: str) -> None:
         
         TrackingMethods.__init__(self,
-                                 prediction_method = 'ExtendedKalman')
+                                 prediction_method = prediction_method)
         
         DL_Flower_Detector.__init__(self,
                              flower_detector = flower_detector,
