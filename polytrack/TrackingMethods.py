@@ -5,6 +5,8 @@ from scipy.optimize import linear_sum_assignment
 from scipy.linalg import block_diag
 import logging
 
+LOGGER = logging.getLogger()
+
 
 
 class ExtendedKalmanFilter:
@@ -86,6 +88,7 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
                  prediction_method: str) -> None:
         
         self.prediction_method = prediction_method
+        LOGGER.info(f"Prediction method: {self.prediction_method}")
 
         pass
     
@@ -108,6 +111,40 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
         row_ind, col_ind = linear_sum_assignment(hun_matrix)
 
         return col_ind
+    
+    def assign_detections_to_tracks(self,detections, predictions, cost_threshold=0.0):
+        """
+        Assigns detections to predicted tracks using the Hungarian algorithm.
+
+        Args:
+            detections (list): List of detection coordinates (2D numpy array).
+            predictions (list): List of predicted track coordinates (2D numpy array).
+            cost_threshold (float): Cost threshold to filter assignments.
+
+        Returns:
+            list: List of tuples representing assignments (detection_index, prediction_index).
+        """
+
+        # Calculate pairwise distances (or costs) between detections and predictions
+        num_detections = len(detections)
+        num_predictions = len(predictions)
+        cost_matrix = np.full((num_detections, num_predictions),0)
+
+        for i in range(num_detections):
+            for j in range(num_predictions):
+                # Calculate Euclidean distance between detection[i] and prediction[j]
+                cost_matrix[i][j] = np.linalg.norm(np.array([detections[i][0],detections[i][1]]) - np.array([predictions[j][1],predictions[j][2]]))
+
+        # Use the Hungarian algorithm to find the optimal assignments
+        detection_indices, prediction_indices = linear_sum_assignment(cost_matrix)
+
+        # Filter assignments based on cost threshold
+        assignments = []
+        for det_idx, pred_idx in zip(detection_indices, prediction_indices):
+            if cost_matrix[det_idx][pred_idx] <= cost_threshold:
+                assignments.append((det_idx, pred_idx))
+
+        return assignments
 
 
     

@@ -4,13 +4,11 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from queue import Empty, Queue
-from threading import Event, Thread
 from itertools import product
 import cv2
 import numpy as np
-from ultralytics import YOLO
-from polytrack.InsectTracker import InsectTracker
+# from ultralytics import YOLO
+from polytrack.InsectTracke0 import InsectTracker
 from polytrack.InsectRecorder0 import Recorder
 from polytrack.EventLogger import EventLogger
 from polytrack.FlowerTracker import FlowerTracker
@@ -31,7 +29,7 @@ class Config:
         tracking_insects: list,
         output_video_dimensions: int,
         input_video_dimensions: int,
-        insect_detector: YOLO,
+        insect_detector: str,
         insect_iou_threshold: float,
         dl_detection_confidence: float,
         min_blob_area: int,
@@ -43,18 +41,22 @@ class Config:
         max_interframe_travel: int,
         info_filename: str,
         iou_threshold: float,
-        model_insects_large: YOLO,
+        model_insects_large: str,
         edge_pixels: int,
         show_video_output: bool,
         save_video_output: bool,
         video_codec: str,
         framerate: int,
         prediction_method: str,
-        flower_detector: YOLO,
+        flower_detector: str,
         flower_iou_threshold: float,
         flower_detection_confidence: float,
         flower_classes: np.ndarray,
-        flower_border: int
+        flower_border: int,
+        tracking_insect_classes: np.ndarray,
+        track_flowers: bool,
+        additional_new_insect_verification: bool,
+        additional_new_insect_verification_confidence: list
 
     ) -> None:
 
@@ -89,6 +91,10 @@ class Config:
         self.flower_detection_confidence = flower_detection_confidence
         self.flower_classes = flower_classes
         self.flower_border = flower_border
+        self.tracking_insect_classes = tracking_insect_classes
+        self.track_flowers = track_flowers
+        self.additional_new_insect_verification = additional_new_insect_verification
+        self.additional_new_insect_verification_confidence = additional_new_insect_verification_confidence
 
 
 
@@ -142,13 +148,13 @@ class TracknRecord():
                 for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
                 predicted_position = self.TrackInsects.predict_next(for_predictions)
 
-                if nframe in self.full_frame_numbers:
+                if (nframe in self.full_frame_numbers) and self.TrackFlowers is not None:
                     associated_flower_detections, missing_flowers, new_flower_detections = self.TrackFlowers.run_flower_tracker(frame, flower_predictions)
                     flower_detections_for_predictions, latest_flower_positions = self.RecordFlowers.record_flowers(mapped_frame_num, associated_flower_detections, missing_flowers, new_flower_detections)
                     flower_predictions = self.TrackFlowers.predict_next(flower_detections_for_predictions)
                     self.RecordTracks.update_flower_positions(latest_flower_positions, self.RecordFlowers.flower_border)
 
-                if len(for_predictions) > 0:
+                if (len(for_predictions) > 0) and self.RecordFlowers is not None:
                     insect_flower_visits = self.RecordFlowers.monitor_flower_visits(for_predictions)
                     self.RecordFlowers.record_flower_visitations(insect_flower_visits, mapped_frame_num, self.RecordTracks.insect_tracks)
                     
@@ -157,8 +163,9 @@ class TracknRecord():
 
             else:
                 LOGGER.info("Finished processing video. Exiting...")
-                self.RecordFlowers.save_flower_tracks()
                 self.RecordTracks.save_inprogress_tracks(predicted_position)
+                if self.RecordFlowers is not None: self.RecordFlowers.save_flower_tracks()
+                
                 break
 
         self.vid.release()
@@ -227,7 +234,10 @@ def main(config: Config):
         info_filename = config.info_filename,
         iou_threshold = config.iou_threshold,
         model_insects_large = config.model_insects_large,
-        prediction_method = config.prediction_method)
+        prediction_method = config.prediction_method,
+        tracking_insect_classes = config.tracking_insect_classes,
+        additional_new_insect_verification= config.additional_new_insect_verification,
+        additional_new_insect_verification_confidence= config.additional_new_insect_verification_confidence)
     
     record_tracks = Recorder(
         input_video_dimensions = config.input_video_dimensions,
@@ -243,24 +253,26 @@ def main(config: Config):
         tracking_insects = config.tracking_insects,
         edge_pixels = config.edge_pixels)
     
-    track_flowers = FlowerTracker(
-        flower_detector = config.flower_detector,
-        flower_iou_threshold = config.flower_iou_threshold,
-        flower_detection_confidence = config.flower_detection_confidence,
-        flower_classes = config.flower_classes)
-    
-    record_flowers = FlowerRecorder(
-        output_directory = output_directory,
-        flower_border = config.flower_border)
+    if config.track_flowers:
+        track_flowers = FlowerTracker(
+            flower_detector = config.flower_detector,
+            flower_iou_threshold = config.flower_iou_threshold,
+            flower_detection_confidence = config.flower_detection_confidence,
+            flower_classes = config.flower_classes)
+        
+        record_flowers = FlowerRecorder(
+            output_directory = output_directory,
+            flower_border = config.flower_border)
     
     track_and_record = TracknRecord(
         video_source = config.video_source,
         RecordTracks = record_tracks,
         TrackInsects = track_insects,
-        TrackFlowers = track_flowers,
-        RecordFlowers = record_flowers,
+        TrackFlowers = track_flowers if config.track_flowers else None,
+        RecordFlowers = record_flowers if config.track_flowers else None,
         compressed_video = config.compressed_video,
         info_filename = config.info_filename)
+    
     
     # Run the TracknRecord instance
     frames_processed = track_and_record.run()
@@ -343,6 +355,10 @@ if __name__ == "__main__":
     flower_detection_confidence = CONFIG.flower_detection_confidence
     flower_classes = CONFIG.flower_classes
     flower_border = CONFIG.flower_border
+    tracking_insect_classes = CONFIG.tracking_insect_classes
+    track_flowers = CONFIG.track_flowers
+    additional_new_insect_verification = CONFIG.additional_new_insect_verification
+    additional_new_insect_verification_confidence = CONFIG.additional_new_insect_verification_confidence
     
 
     video_source = Path(video_source)
@@ -403,7 +419,11 @@ if __name__ == "__main__":
                 "flower_iou_threshold" : CONFIG.flower_iou_threshold,
                 "flower_detection_confidence": CONFIG.flower_detection_confidence,
                 "flower_classes" : CONFIG.flower_classes,
-                "flower_border" : CONFIG.flower_border
+                "flower_border" : CONFIG.flower_border,
+                "tracking_insect_classes" : CONFIG.tracking_insect_classes,
+                "track_flowers" : CONFIG.track_flowers,
+                "additional_new_insect_verification": CONFIG.additional_new_insect_verification,
+                "additional_new_insect_verification_confidence": CONFIG.additional_new_insect_verification_confidence
             }
             
         )

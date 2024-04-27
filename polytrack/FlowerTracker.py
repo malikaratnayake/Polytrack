@@ -9,7 +9,7 @@ LOGGER = logging.getLogger()
 class DL_Flower_Detector():
 
     def __init__(self,
-                flower_detector: YOLO,
+                flower_detector: str,
                 flower_iou_threshold: float,
                 flower_detection_confidence: float,
                 flower_classes: np.ndarray) -> None:
@@ -86,13 +86,13 @@ class DL_Flower_Detector():
 class FlowerTracker(DL_Flower_Detector, TrackingMethods):
 
     def __init__(self,
-                flower_detector: YOLO,
+                flower_detector: str,
                 flower_iou_threshold: float,
                 flower_detection_confidence: float,
                 flower_classes: np.ndarray) -> None:
         
         TrackingMethods.__init__(self,
-                                 prediction_method = 'ConstantVelocity')
+                                 prediction_method = 'ExtendedKalman')
         
         DL_Flower_Detector.__init__(self,
                              flower_detector = flower_detector,

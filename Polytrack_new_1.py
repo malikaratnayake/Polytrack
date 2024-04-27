@@ -1,13 +1,9 @@
-import os
-import json
-import logging
-import time
-from datetime import datetime
-from pathlib import Path
+import numpy as np
+from ultralytics import YOLO
 from queue import Empty, Queue
-from threading import Event, Thread
-from itertools import product
+from threading import Thread, Event
 import cv2
+import json
 import numpy as np
 from ultralytics import YOLO
 from polytrack.InsectTracker import InsectTracker
@@ -15,6 +11,14 @@ from polytrack.InsectRecorder0 import Recorder
 from polytrack.EventLogger import EventLogger
 from polytrack.FlowerTracker import FlowerTracker
 from polytrack.FlowerRecorder0 import FlowerRecorder
+import logging
+import os
+from pathlib import Path
+from datetime import datetime
+import time
+from itertools import product
+
+
 
 LOGGER = logging.getLogger()
 
@@ -182,7 +186,7 @@ class InsectTracknRecord(Thread):
         self.stop_signal = stop_signal
 
         self.vid = cv2.VideoCapture(self.video_source)
-        LOGGER.info(f"Processing video: {self.video_source}")
+        LOGGER.info(f"Processing video -: {self.video_source}")
 
         if self.compressed_video:
             _, _, self.full_frame_numbers = self.TrackInsects.get_compression_details(self.video_source, self.info_filename)
@@ -195,23 +199,30 @@ class InsectTracknRecord(Thread):
         nframe = 0
         while True:
 
-            if self.stop_signal.is_set() and self.reading_queue.empty():
+            if self.stop_signal.is_set():
                 self.RecordTracks.save_inprogress_tracks(predicted_position)
                 LOGGER.info("Received stop signal. Exiting...")
                 break
 
             _, frame = self.vid.read()
 
+            print(nframe)
+
 
             if frame is not None:
                 nframe += 1
                 mapped_frame_num = self.TrackInsects.map_frame_number(nframe, compressed_video)
+                print("a")
                 fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects = self.TrackInsects.run_tracker(frame, nframe, predicted_position)
+                print("b")
                 for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
+                print("c")
                 predicted_position = self.TrackInsects.predict_next(for_predictions)
+                print("d")
 
                 if nframe in self.full_frame_numbers:
-                    self.flower_tracker_queue.put((frame, mapped_frame_num))
+                    # self.flower_tracker_queue.put((frame, mapped_frame_num))
+                    pass
 
                 if len(predicted_position) > 0:
                     self.flower_recorder_queue.put((for_predictions, mapped_frame_num))
@@ -423,7 +434,7 @@ def main(config: Config):
     
     while True:
         try:
-            # time.sleep(2)
+            time.sleep(2)
             if not any([thread.is_alive() for thread in threads]):
                 print(
                     "All child processes appear to have finished! Exiting infinite loop..."
