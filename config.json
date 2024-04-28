@@ -1,5 +1,5 @@
 { 
-    "video_source": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/Ratnayake2023_processed/", 
+    "video_source": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/Ratnayake2023_processed/cam_3_S_video_20210312_123203.h264.avi", 
     "output_directory": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/output/Ratnayake2023_processed_CV4A/", 
     "max_occlusions": 100, 
     "max_occlusions_edge": 32, 
@@ -19,6 +19,7 @@
     "max_interframe_travel": [200, 50], 
     "info_filename": "", 
     "iou_threshold": 0, 
+    "insect_boundary_extension":2.5,
     "additional_new_insect_verification": true,
     "additional_new_insect_verification_confidence": [0.7,0.9,0.5, 0.5],
     "model_insects_large": "./data/yolov8_models/yolov8l_best.pt",
@@ -34,6 +35,6 @@
     "flower_iou_threshold" : 0.5,
     "flower_detection_confidence": 0.1,
     "flower_classes" : [1],
-    "flower_border" : 10
+    "flower_border" : 15
 }
 

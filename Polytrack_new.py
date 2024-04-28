@@ -57,7 +57,8 @@ class Config:
         tracking_insect_classes: np.ndarray,
         track_flowers: bool,
         additional_new_insect_verification: bool,
-        additional_new_insect_verification_confidence: list
+        additional_new_insect_verification_confidence: list,
+        insect_boundary_extension: float
 
     ) -> None:
 
@@ -97,6 +98,7 @@ class Config:
         self.track_flowers = track_flowers
         self.additional_new_insect_verification = additional_new_insect_verification
         self.additional_new_insect_verification_confidence = additional_new_insect_verification_confidence
+        self.insect_boundary_extension = insect_boundary_extension
 
 
 
@@ -239,7 +241,8 @@ def main(config: Config):
         prediction_method = config.prediction_method,
         tracking_insect_classes = config.tracking_insect_classes,
         additional_new_insect_verification= config.additional_new_insect_verification,
-        additional_new_insect_verification_confidence= config.additional_new_insect_verification_confidence)
+        additional_new_insect_verification_confidence= config.additional_new_insect_verification_confidence,
+        insect_boundary_extension = config.insect_boundary_extension)
     
     record_tracks = Recorder(
         input_video_dimensions = config.input_video_dimensions,
@@ -364,6 +367,7 @@ if __name__ == "__main__":
     track_flowers = CONFIG.track_flowers
     additional_new_insect_verification = CONFIG.additional_new_insect_verification
     additional_new_insect_verification_confidence = CONFIG.additional_new_insect_verification_confidence
+    insect_boundary_extension = CONFIG.insect_boundary_extension
     
 
     video_source = Path(video_source)
@@ -429,7 +433,8 @@ if __name__ == "__main__":
                 "tracking_insect_classes" : CONFIG.tracking_insect_classes,
                 "track_flowers" : CONFIG.track_flowers,
                 "additional_new_insect_verification": CONFIG.additional_new_insect_verification,
-                "additional_new_insect_verification_confidence": CONFIG.additional_new_insect_verification_confidence
+                "additional_new_insect_verification_confidence": CONFIG.additional_new_insect_verification_confidence,
+                "insect_boundary_extension": CONFIG.insect_boundary_extension
             }
             
         )
