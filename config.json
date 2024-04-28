@@ -1,5 +1,5 @@
 { 
-    "video_source": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/Ratnayake2023_processed/cam_1_N_video_20210315_132804.h264.avi", 
+    "video_source": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/Ratnayake2023_processed/", 
     "output_directory": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/output/Ratnayake2023_processed_CV4A/", 
     "max_occlusions": 100, 
     "max_occlusions_edge": 32, 
