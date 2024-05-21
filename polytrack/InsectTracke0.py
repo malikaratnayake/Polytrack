@@ -189,15 +189,15 @@ class FGBG_Detector(TrackingMethods):
         else:
             downscaled_frame = cv2.resize(cv2.cvtColor(frame,  cv2.COLOR_BGR2GRAY), dsize=None, fx=self.fx, fy=self.fy)
             
-        
-        # cv2.imshow("Last full frame", self.last_full_frame)
-
-        if nframe in self.full_frame_num:
-            self.last_full_frame = downscaled_frame
-            preprocessed_frame = downscaled_frame
+        if self.compressed_video:
+            if nframe in self.full_frame_num:
+                self.last_full_frame = downscaled_frame
+                preprocessed_frame = downscaled_frame
+            else:
+                diff_frame = cv2.absdiff(downscaled_frame, self.last_full_frame)
+                preprocessed_frame = cv2.add(downscaled_frame, diff_frame)
         else:
-            diff_frame = cv2.absdiff(downscaled_frame, self.last_full_frame)
-            preprocessed_frame = cv2.add(downscaled_frame, diff_frame)
+            preprocessed_frame = downscaled_frame
 
         return preprocessed_frame
     
@@ -247,8 +247,8 @@ class FGBG_Detector(TrackingMethods):
                         frame: np.ndarray, 
                         nframe) -> np.ndarray:
         
-        if self.preprocess_frame:
-            frame = self.preprocess_frame(frame, nframe)
+        # if self.compressed_video:
+        frame = self.preprocess_frame(frame, nframe)
 
         foreground_blobs = self.detect_foreground_blobs(frame)
 
@@ -347,7 +347,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
             dl_associated_detections, dl_missing_insects, potential_new_insects = self.process_detections(fg_detections,dl_detections,self.predictions)
 
-            if potential_new_insects.any() and (nframe not in self.full_frame_num):
+            if potential_new_insects.any() and (not self.compressed_video or (self.compressed_video and (nframe not in self.full_frame_num))):
                 new_insects = self.verify_new_insects(frame, potential_new_insects, fgbg_associated_detections, fg_detections)
             else:
                 new_insects = []

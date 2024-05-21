@@ -59,7 +59,8 @@ class Config:
         additional_new_insect_verification: bool,
         additional_new_insect_verification_confidence: list,
         insect_boundary_extension: float,
-        black_pixel_threshold: float
+        black_pixel_threshold: float,
+        flower_detection_interval: int
 
     ) -> None:
 
@@ -101,6 +102,7 @@ class Config:
         self.additional_new_insect_verification_confidence = additional_new_insect_verification_confidence
         self.insect_boundary_extension = insect_boundary_extension
         self.black_pixel_threshold = black_pixel_threshold
+        self.flower_detection_interval = flower_detection_interval
 
 
 
@@ -124,7 +126,8 @@ class TracknRecord():
                  TrackFlowers: FlowerTracker,
                  RecordFlowers: FlowerRecorder,
                  compressed_video: bool,
-                 info_filename: str) -> None:
+                 info_filename: str,
+                 flower_detection_interval:int) -> None:
         
         self.video_source = video_source
         self.RecordTracks = RecordTracks
@@ -133,6 +136,7 @@ class TracknRecord():
         self.RecordFlowers = RecordFlowers
         self.compressed_video = compressed_video
         self.info_filename = info_filename
+        self.flower_detection_interval = flower_detection_interval
         self.vid = cv2.VideoCapture(self.video_source)
         LOGGER.info(f"Processing video: {self.video_source}")
         
@@ -154,11 +158,12 @@ class TracknRecord():
                 for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
                 predicted_position = self.TrackInsects.predict_next(for_predictions)
 
-                if (nframe in self.full_frame_numbers) and self.TrackFlowers is not None:
+                if ((self.compressed_video and (nframe in self.full_frame_numbers)) or (not self.compressed_video and (nframe == 5 or nframe % self.flower_detection_interval == 0))) and self.TrackFlowers is not None:
                     associated_flower_detections, missing_flowers, new_flower_detections = self.TrackFlowers.run_flower_tracker(frame, flower_predictions)
                     flower_detections_for_predictions, latest_flower_positions = self.RecordFlowers.record_flowers(mapped_frame_num, associated_flower_detections, missing_flowers, new_flower_detections)
                     flower_predictions = self.TrackFlowers.predict_next(flower_detections_for_predictions)
                     self.RecordTracks.update_flower_positions(latest_flower_positions, self.RecordFlowers.flower_border)
+
 
                 if (len(for_predictions) > 0) and self.RecordFlowers is not None:
                     insect_flower_visits = self.RecordFlowers.monitor_flower_visits(for_predictions)
@@ -284,6 +289,7 @@ def main(config: Config):
         TrackInsects = track_insects,
         TrackFlowers = track_flowers if config.track_flowers else None,
         RecordFlowers = record_flowers if config.track_flowers else None,
+        flower_detection_interval = config.flower_detection_interval if config.track_flowers else None,
         compressed_video = config.compressed_video,
         info_filename = config.info_filename)
     
@@ -376,6 +382,7 @@ if __name__ == "__main__":
     additional_new_insect_verification_confidence = CONFIG.additional_new_insect_verification_confidence
     insect_boundary_extension = CONFIG.insect_boundary_extension
     black_pixel_threshold = CONFIG.black_pixel_threshold
+    flower_detection_interval = CONFIG.flower_detection_interval
     
 
     video_source = Path(video_source)
@@ -443,7 +450,8 @@ if __name__ == "__main__":
                 "additional_new_insect_verification": CONFIG.additional_new_insect_verification,
                 "additional_new_insect_verification_confidence": CONFIG.additional_new_insect_verification_confidence,
                 "insect_boundary_extension": CONFIG.insect_boundary_extension,
-                "black_pixel_threshold": CONFIG.black_pixel_threshold
+                "black_pixel_threshold": CONFIG.black_pixel_threshold,
+                "flower_detection_interval": CONFIG.flower_detection_interval
             }
             
         )

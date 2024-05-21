@@ -1,5 +1,5 @@
 { 
-    "video_source": "/Users/mrat0010/Documents/GitHub/EcoMotionZip/testing/test_videos/Ratnayake2023/cam_1_N_video_20210315_132804.h264.avi", 
+    "video_source": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/Ratnayake2023_processed_X264/", 
     "output_directory": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/output/Ratnayake2023_processed_CV4A/", 
     "max_occlusions": 100, 
     "max_occlusions_edge": 32, 
@@ -15,7 +15,7 @@
     "downscale_factor": 1, 
     "dilate_kernel_size": 8, 
     "movement_threshold": 120, 
-    "compressed_video": false, 
+    "compressed_video": true, 
     "max_interframe_travel": [200, 25], 
     "info_filename": "", 
     "iou_threshold": 0, 
@@ -32,6 +32,7 @@
     "prediction_method": "ConstantVelocity",
     "track_flowers": true,
     "flower_detector" : "./data/yolov8_models/flowers.pt",
+    "flower_detection_interval": 300,
     "max_occlusions_on_flower": 300,
     "flower_iou_threshold" : 0.5,
     "flower_detection_confidence": 0.1,
