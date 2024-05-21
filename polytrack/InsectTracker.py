@@ -169,8 +169,8 @@ class FGBG_Detector(TrackingMethods):
             self.last_full_frame = downscaled_frame
             preprocessed_frame = downscaled_frame
         else:
-            diff_frame = cv2.absdiff(downscaled_frame, self.last_full_frame)
-            preprocessed_frame = cv2.add(downscaled_frame, diff_frame)
+            env_frame = cv2.absdiff(downscaled_frame, self.last_full_frame)
+            preprocessed_frame = cv2.add(downscaled_frame, env_frame)
 
         return preprocessed_frame
     

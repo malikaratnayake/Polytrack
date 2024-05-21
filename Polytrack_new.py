@@ -58,7 +58,8 @@ class Config:
         track_flowers: bool,
         additional_new_insect_verification: bool,
         additional_new_insect_verification_confidence: list,
-        insect_boundary_extension: float
+        insect_boundary_extension: float,
+        black_pixel_threshold: float
 
     ) -> None:
 
@@ -99,6 +100,7 @@ class Config:
         self.additional_new_insect_verification = additional_new_insect_verification
         self.additional_new_insect_verification_confidence = additional_new_insect_verification_confidence
         self.insect_boundary_extension = insect_boundary_extension
+        self.black_pixel_threshold = black_pixel_threshold
 
 
 
@@ -220,6 +222,10 @@ def main(config: Config):
     LOGGER.info(f"Starting processing at :  {datetime.fromtimestamp(start)}")
     # LOGGER.info(f"Running main() with Config:  {config.__dict__}")
     LOGGER.info(f"Outputting to {output_filename}")
+    
+    #Create a copy of the config file in the output directory
+    with open(output_parent_directory / "config.json", "w") as f:
+        json.dump(config.__dict__, f, indent=4)
 
 
     # Create all of our threads
@@ -242,7 +248,8 @@ def main(config: Config):
         tracking_insect_classes = config.tracking_insect_classes,
         additional_new_insect_verification= config.additional_new_insect_verification,
         additional_new_insect_verification_confidence= config.additional_new_insect_verification_confidence,
-        insect_boundary_extension = config.insect_boundary_extension)
+        insect_boundary_extension = config.insect_boundary_extension,
+        black_pixel_threshold = config.black_pixel_threshold)
     
     record_tracks = Recorder(
         input_video_dimensions = config.input_video_dimensions,
@@ -368,6 +375,7 @@ if __name__ == "__main__":
     additional_new_insect_verification = CONFIG.additional_new_insect_verification
     additional_new_insect_verification_confidence = CONFIG.additional_new_insect_verification_confidence
     insect_boundary_extension = CONFIG.insect_boundary_extension
+    black_pixel_threshold = CONFIG.black_pixel_threshold
     
 
     video_source = Path(video_source)
@@ -434,7 +442,8 @@ if __name__ == "__main__":
                 "track_flowers" : CONFIG.track_flowers,
                 "additional_new_insect_verification": CONFIG.additional_new_insect_verification,
                 "additional_new_insect_verification_confidence": CONFIG.additional_new_insect_verification_confidence,
-                "insect_boundary_extension": CONFIG.insect_boundary_extension
+                "insect_boundary_extension": CONFIG.insect_boundary_extension,
+                "black_pixel_threshold": CONFIG.black_pixel_threshold
             }
             
         )
