@@ -1,6 +1,6 @@
 { 
     "video_source": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/video/Ratnayake2023_processed_DIVX/", 
-    "output_directory": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/output/Ratnayake2023_processed_CV4A/", 
+    "output_directory": "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/output/US-Video/", 
     "max_occlusions": 100, 
     "max_occlusions_edge": 32, 
     "tracking_insects": ["honeybee","hoverfly", "moth"] , 
