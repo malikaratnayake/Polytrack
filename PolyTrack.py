@@ -21,7 +21,6 @@ compressed_video =pt_cfg.POLYTRACK.COMPRESSED_VIDEO
 def main(_argv):
     start_time = datetime.now()
     start_time_py = time.time()
-    print("Start:  " + str(start_time))
     nframe = 0
     total_frames = 0
     predicted_position =[]
@@ -38,6 +37,7 @@ def main(_argv):
         print('===================' + str(video_name) + '===================')
 
         video = str(pt_cfg.POLYTRACK.INPUT_DIR) + str(video_name)
+        # TrackInsect = InsectTracker(video)
 
         try:
             vid = cv2.VideoCapture(int(video))

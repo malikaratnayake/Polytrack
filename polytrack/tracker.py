@@ -221,7 +221,7 @@ class InsectTracker(DL_Detections, BS_Detections):
 
         try:
 
-            csv_file = str(_video_info_filepath) + 'video_info.csv'
+            csv_file = str(_video_info_filepath) + '_video_info.csv'
 
             with open(csv_file, "r", encoding="utf-8") as csv_file:
                 csv_reader = csv.reader(csv_file)

@@ -12,11 +12,11 @@ pt_cfg                           = __PT
 __PT.POLYTRACK                 = edict()
 
 __PT.POLYTRACK.INPUT          = './data/video/cam_3_N_video_20210308_122000' # File location of the input video file (If only a single video needs to be processed)
-__PT.POLYTRACK.INPUT_DIR      = './data/video/bees-edge/unprocessed/' # Specify the directory of the input video files 
-__PT.POLYTRACK.COMPRESSED_VIDEO  = False # Set TRUE if the input video is motion compressed (beta).
+__PT.POLYTRACK.INPUT_DIR      = '/Users/mrat0010/Documents/GitHub/Polytrack_PUB/data/Ratnayake2023_processed/cam_1_N_video_20210315_132804.h264' # Specify the directory of the input video files 
+__PT.POLYTRACK.COMPRESSED_VIDEO  = True # Set TRUE if the input video is motion compressed (beta).
 __PT.POLYTRACK.VIDEO_EXT      = 'avi' # Video extension
-__PT.POLYTRACK.CONTINUOUS_VIDEO = True # For processing multiple video files - TRUE, if video files are sequencial
-__PT.POLYTRACK.OUTPUT         = './data/output/' # Output directory
+__PT.POLYTRACK.CONTINUOUS_VIDEO = False # For processing multiple video files - TRUE, if video files are sequencial
+__PT.POLYTRACK.OUTPUT         = './data/output/CV4A/' # Output directory
 __PT.POLYTRACK.VIDEO_START_TIME = None #Start time of the video. To be extracted from the video file name (default setting -> None)
 __PT.POLYTRACK.CURRENT_VIDEO_DETAILS = None #Video details. To be extracted from the video file name (default setting -> None)
 __PT.POLYTRACK.INSECT_COUNT = 0 
