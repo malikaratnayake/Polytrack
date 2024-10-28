@@ -15,3 +15,6 @@ polytrack/__pycache__/flowers.cpython-310.pyc
 polytrack/__pycache__/general.cpython-310.pyc
 polytrack/__pycache__/tracker.cpython-310.pyc
 data/Ratnayake2023_processed/
+data/yolov8_models/flowers.pt
+data/yolov8_models/insects_best_l.pt
+data/yolov8_models/insects_best_s.pt
