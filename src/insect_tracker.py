@@ -268,31 +268,31 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         
         
         DL_Detector.__init__(self,
-                             insect_detector = config.detectors.primary.model,
-                             model_insects_large = config.detectors.secondary.model,
-                             insect_iou_threshold = config.detectors.primary.iou_threshold,
-                             dl_detection_confidence = config.detectors.primary.detection_confidence,
+                             insect_detector = config.detector_properties.primary.model,
+                             model_insects_large = config.detector_properties.secondary.model,
+                             insect_iou_threshold = config.detector_properties.primary.iou_threshold,
+                             dl_detection_confidence = config.detector_properties.primary.detection_confidence,
                              tracking_insect_classes = config.classes,
-                             black_pixel_threshold = config.detectors.secondary.black_pixel_threshold)
+                             black_pixel_threshold = config.detector_properties.secondary.black_pixel_threshold)
         
         FGBG_Detector.__init__(self,        
-                                min_blob_area = config.tracking.min_blob_area,
-                                max_blob_area = config.tracking.max_blob_area,
-                                downscale_factor = config.detectors.foreground.downscale_factor,
-                                dilate_kernel_size = config.detectors.foreground.dilate_kernel_size,
-                                movement_threshold = config.detectors.foreground.movement_threshold,
+                                min_blob_area = config.min_blob_area,
+                                max_blob_area = config.max_blob_area,
+                                downscale_factor = config.detector_properties.foreground.downscale_factor,
+                                dilate_kernel_size = config.detector_properties.foreground.dilate_kernel_size,
+                                movement_threshold = config.detector_properties.foreground.movement_threshold,
                                 compressed_video = source_config.compressed_video,
                                 video_filepath = directory_config.source,
                                 info_filename = source_config.compression_info,
-                                prediction_method = config.tracking.prediction_method)
+                                prediction_method = config.prediction_method)
 
         self.predictions = []
-        self.max_interframe_travel = config.tracking.jump_distance
+        self.max_interframe_travel = config.jump_distance
         self.compressed_video = source_config.compressed_video
-        self.iou_threshold = config.tracking.iou_threshold
-        self.insect_boundary_extension = config.tracking.insect_boundary_extension
-        self.additional_new_insect_verification = config.detectors.secondary.use
-        self.additional_new_insect_verification_confidence = config.detectors.secondary.detection_confidence
+        self.iou_threshold = config.iou_threshold
+        self.insect_boundary_extension = config.insect_boundary_extension
+        self.additional_new_insect_verification = "ai_secondary" in config.detectors
+        self.additional_new_insect_verification_confidence = config.detector_properties.secondary.detection_confidence
         
         return None
     

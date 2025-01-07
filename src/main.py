@@ -55,11 +55,10 @@ with open('./config/config.yaml', 'r') as f:
 
 # Create Config instances
 DIRECTORY_CONFIG = Config(yaml_config["directories"])
-INSECT_CONFIG = Config(yaml_config["insects"])
-FLOWER_CONFIG = Config(yaml_config["flowers"])
-SOURCE_CONFIG = Config(yaml_config["source"])
+INSECT_CONFIG = Config(yaml_config["insect_tracking"])
+FLOWER_CONFIG = Config(yaml_config["flower_tracking"])
 OUTPUT_CONFIG = Config(yaml_config["output"])
-
+SOURCE_CONFIG = Config(yaml_config["source"])
 
 
 
@@ -171,18 +170,22 @@ def main(directory_config: Config):
     # LOGGER.info(f"Running main() with Config:  {config.__dict__}")
     LOGGER.info(f"Outputting to {output_filename}")
     
-    #Create a copy of the config file in the output directory
-        # Save the updated configurations back to the YAML file
-    # config_yaml = {
-    #     'directories': directory_config.to_dict(),
-    #     'insects': INSECT_CONFIG.to_dict(),
-    #     'flowers': FLOWER_CONFIG.to_dict(),
-    #     'recording': RECORDING_CONFIG.to_dict()
-    # }
+    # Create a copy of the config file in the output directory
+    #     Save the updated configurations back to the YAML file
+    config_copy_yaml = {
+        'directories': directory_config.to_dict(),
+        'source': SOURCE_CONFIG.to_dict(),
+        'output': OUTPUT_CONFIG.to_dict(),
+        'insect_tracking': INSECT_CONFIG.to_dict(),
+        'flower_tracking': FLOWER_CONFIG.to_dict()
+    }
  
     # # Save the updated YAML file to the Data directory in format YYYYMMDD_HHMMSS.yaml
-    # with open(output_parent_directory / "config.yaml", 'w') as f:
-    #     yaml.dump(config_yaml, f)
+    with open(output_parent_directory / "config_copy.yaml", 'w') as f:
+        yaml.dump(config_copy_yaml, f)
+
+    # Update the output directory in the config file
+    directory_config.output = output_directory
     
 
     # Create all of our threads
@@ -194,6 +197,7 @@ def main(directory_config: Config):
     
     record_tracks = Recorder(
         output_config=OUTPUT_CONFIG,
+        insect_config=INSECT_CONFIG,
         source_config=SOURCE_CONFIG,
         directory_config=directory_config)
     

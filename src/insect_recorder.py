@@ -129,30 +129,31 @@ class Recorder(VideoWriter):
 
     def __init__(self,
                  output_config: dict,
+                 insect_config: dict,
                  source_config: dict,
                  directory_config: dict) -> None:
 
         
         VideoWriter.__init__(self,
                             input_video_dimensions = source_config.resolution,
-                            output_video_dimensions = output_config.video.resolution,
+                            output_video_dimensions = output_config.resolution,
                             video_source = directory_config.source,
                             framerate = source_config.framerate,
-                            tracking_insects= output_config.tracking.insect_labels,
+                            tracking_insects= insect_config.labels,
                             output_directory = directory_config.output,
-                            show_video_output = output_config.video.show,
-                            save_video_output = output_config.video.save,
-                            video_codec = output_config.video.codec) 
+                            show_video_output = output_config.show,
+                            save_video_output = output_config.save,
+                            video_codec = output_config.codec) 
         
         self.insect_tracks = []
-        self.edge_pixels = output_config.tracking.edge_pixels
+        self.edge_pixels = insect_config.edge_pixels
         self.width, self.height, self.fps = source_config.resolution[0], source_config.resolution[1], source_config.framerate
-        self.max_occlusions = output_config.tracking.max_occlusions
-        self.max_occlusions_edge = output_config.tracking.max_edge_occlusions
-        self.max_occlusions_on_flower = output_config.tracking.max_occlusions_on_flower
-        self.tracking_insects = output_config.tracking.insect_labels
+        self.max_occlusions = insect_config.max_occlusions
+        self.max_occlusions_edge = insect_config.max_edge_occlusions
+        self.max_occlusions_on_flower = insect_config.max_occlusions_on_flower
+        self.tracking_insects = insect_config.labels
         self.insect_count = 0
-        self.video_frame_width, self.video_frame_height = output_config.video.resolution[0], output_config.video.resolution[1]
+        self.video_frame_width, self.video_frame_height = output_config.resolution[0], output_config.resolution[1]
 
 
 

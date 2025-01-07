@@ -14,7 +14,7 @@ class EventLogger:
         # console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
         console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
 
-        log_filename =os.path.join(_log_directory, os.path.basename(_log_directory)) +'_log.log'
+        log_filename =os.path.join(_log_directory, os.path.basename(_log_directory)) +'.log'
         print(log_filename)
         
         # Create a file handler

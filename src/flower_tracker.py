@@ -89,13 +89,13 @@ class FlowerTracker(DL_Flower_Detector, TrackingMethods):
                 config: dict) -> None:
         
         TrackingMethods.__init__(self,
-                                 prediction_method = config.tracking.prediction_method)
+                                 prediction_method = config.prediction_method)
         
         DL_Flower_Detector.__init__(self,
-                             flower_detector = config.detector.model,
-                             flower_iou_threshold = config.detector.iou_threshold,
-                             flower_detection_confidence = config.detector.detection_confidence,
-                             flower_classes = config.detector.classes)
+                             flower_detector = config.detector_properties.model,
+                             flower_iou_threshold = config.detector_properties.iou_threshold,
+                             flower_detection_confidence = config.detector_properties.detection_confidence,
+                             flower_classes = config.classes)
         
         self.flower_predictions = []
         
