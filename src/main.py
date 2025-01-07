@@ -54,103 +54,11 @@ with open('./config/config.yaml', 'r') as f:
     yaml_config = yaml.safe_load(f)
 
 # Create Config instances
-CONFIG = Config(yaml_config)
-
-
-# class Config:
-#     def __init__(
-#         self,
-#         video_source: str,
-#         output_directory: str,
-#         max_occlusions: int,
-#         max_occlusions_edge: int,
-#         max_occlusions_on_flower: int,
-#         tracking_insects: list,
-#         output_video_dimensions: int,
-#         input_video_dimensions: int,
-#         insect_detector: str,
-#         insect_iou_threshold: float,
-#         dl_detection_confidence: float,
-#         min_blob_area: int,
-#         max_blob_area: int,
-#         downscale_factor: int,
-#         dilate_kernel_size: int,
-#         movement_threshold: int,
-#         compressed_video: bool,
-#         max_interframe_travel: int,
-#         info_filename: str,
-#         iou_threshold: float,
-#         model_insects_large: str,
-#         edge_pixels: int,
-#         show_video_output: bool,
-#         save_video_output: bool,
-#         video_codec: str,
-#         framerate: int,
-#         prediction_method: str,
-#         flower_detector: str,
-#         flower_iou_threshold: float,
-#         flower_detection_confidence: float,
-#         flower_classes: np.ndarray,
-#         flower_border: int,
-#         tracking_insect_classes: np.ndarray,
-#         track_flowers: bool,
-#         additional_new_insect_verification: bool,
-#         additional_new_insect_verification_confidence: list,
-#         insect_boundary_extension: float,
-#         black_pixel_threshold: float,
-#         flower_detection_interval: int
-
-#     ) -> None:
-
-#         self.video_source = video_source
-#         self.output_directory = output_directory
-#         self.max_occlusions = max_occlusions
-#         self.max_occlusions_edge = max_occlusions_edge
-#         self.max_occlusions_on_flower = max_occlusions_on_flower
-#         self.tracking_insects = tracking_insects
-#         self.output_video_dimensions = output_video_dimensions
-#         self.input_video_dimensions = input_video_dimensions
-#         self.insect_detector = insect_detector
-#         self.insect_iou_threshold = insect_iou_threshold
-#         self.dl_detection_confidence = dl_detection_confidence
-#         self.min_blob_area = min_blob_area
-#         self.max_blob_area = max_blob_area
-#         self.downscale_factor = downscale_factor
-#         self.dilate_kernel_size = dilate_kernel_size
-#         self.movement_threshold = movement_threshold
-#         self.compressed_video = compressed_video
-#         self.max_interframe_travel = max_interframe_travel
-#         self.info_filename = info_filename
-#         self.iou_threshold = iou_threshold
-#         self.model_insects_large = model_insects_large
-#         self.edge_pixels = edge_pixels
-#         self.show_video_output = show_video_output
-#         self.save_video_output = save_video_output
-#         self.video_codec = video_codec
-#         self.framerate = framerate
-#         self.prediction_method = prediction_method
-#         self.flower_detector = flower_detector
-#         self.flower_iou_threshold = flower_iou_threshold
-#         self.flower_detection_confidence = flower_detection_confidence
-#         self.flower_classes = flower_classes
-#         self.flower_border = flower_border
-#         self.tracking_insect_classes = tracking_insect_classes
-#         self.track_flowers = track_flowers
-#         self.additional_new_insect_verification = additional_new_insect_verification
-#         self.additional_new_insect_verification_confidence = additional_new_insect_verification_confidence
-#         self.insect_boundary_extension = insect_boundary_extension
-#         self.black_pixel_threshold = black_pixel_threshold
-#         self.flower_detection_interval = flower_detection_interval
-
-
-
-
-
-# # Create Config object from JSON file
-# with open("config.json", "r") as f:
-#     __config_dict = json.load(f)
-
-# CONFIG = Config(**__config_dict)
+DIRECTORY_CONFIG = Config(yaml_config["directories"])
+INSECT_CONFIG = Config(yaml_config["insects"])
+FLOWER_CONFIG = Config(yaml_config["flowers"])
+SOURCE_CONFIG = Config(yaml_config["source"])
+OUTPUT_CONFIG = Config(yaml_config["output"])
 
 
 
@@ -191,7 +99,7 @@ class TracknRecord():
 
             if frame is not None:
                 nframe += 1
-                mapped_frame_num = self.TrackInsects.map_frame_number(nframe, compressed_video)
+                mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
                 fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects = self.TrackInsects.run_tracker(frame, nframe, predicted_position)
                 for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
                 predicted_position = self.TrackInsects.predict_next(for_predictions)
@@ -228,26 +136,22 @@ class TracknRecord():
 
 
 
-def main(config: Config):
+def main(directory_config: Config):
     start = time.time()
     
 
-    # Make sure opencv doesn't use too many threads and hog CPUs
-    # cv2.setNumThreads(config.num_opencv_threads)
-    # Use the input filepath to figure out the output filename
-    # if type(config.video_source) is str:
-    if type(config.video.source.directory) is str:
-        output_filename = os.path.splitext(os.path.basename(config.video.source.directory))[0]
+    if type(directory_config.source) is str:
+        output_filename = os.path.splitext(os.path.basename(directory_config.source))[0]
     else:
         output_filename = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Determine the output directory based on user input
 
-    if os.path.isdir(config.video.output.directory):
-        output_parent_directory = Path(config.video.output.directory, "Polytrack")
+    if os.path.isdir(directory_config.output):
+        output_parent_directory = Path(directory_config.output, "Polytrack")
         log_message = f"Outputting to {output_parent_directory}"
     else:
-        output_parent_directory = Path(config.video.source.directory, "Polytrack")
+        output_parent_directory = Path(directory_config.source, "Polytrack")
         log_message = f"Output directory not specified or unavailable. Outputting to video source directory  {output_parent_directory}"
 
 
@@ -268,71 +172,48 @@ def main(config: Config):
     LOGGER.info(f"Outputting to {output_filename}")
     
     #Create a copy of the config file in the output directory
+        # Save the updated configurations back to the YAML file
+    # config_yaml = {
+    #     'directories': directory_config.to_dict(),
+    #     'insects': INSECT_CONFIG.to_dict(),
+    #     'flowers': FLOWER_CONFIG.to_dict(),
+    #     'recording': RECORDING_CONFIG.to_dict()
+    # }
+ 
+    # # Save the updated YAML file to the Data directory in format YYYYMMDD_HHMMSS.yaml
+    # with open(output_parent_directory / "config.yaml", 'w') as f:
+    #     yaml.dump(config_yaml, f)
     
-    # with open(output_parent_directory / "config.json", "w") as f:
-    #     json.dump(config.__dict__, f, indent=4)
-    config.save_to_yaml(output_parent_directory / "config.yaml")
-    print(output_parent_directory / "config.yaml")
 
     # Create all of our threads
     track_insects = InsectTracker(
-        insect_detector = config.insect_detector,
-        insect_iou_threshold = config.insect_iou_threshold,
-        dl_detection_confidence = config.dl_detection_confidence,
-        min_blob_area = config.min_blob_area,
-        max_blob_area = config.max_blob_area,
-        downscale_factor = config.downscale_factor,
-        dilate_kernel_size = config.dilate_kernel_size,
-        movement_threshold = config.movement_threshold,
-        compressed_video = config.compressed_video,
-        max_interframe_travel = config.max_interframe_travel,
-        video_filepath = config.video_source,
-        info_filename = config.info_filename,
-        iou_threshold = config.iou_threshold,
-        model_insects_large = config.model_insects_large,
-        prediction_method = config.prediction_method,
-        tracking_insect_classes = config.tracking_insect_classes,
-        additional_new_insect_verification= config.additional_new_insect_verification,
-        additional_new_insect_verification_confidence= config.additional_new_insect_verification_confidence,
-        insect_boundary_extension = config.insect_boundary_extension,
-        black_pixel_threshold = config.black_pixel_threshold)
+        config = INSECT_CONFIG,
+        source_config=SOURCE_CONFIG,
+        directory_config=directory_config)
+    
     
     record_tracks = Recorder(
-        input_video_dimensions = config.input_video_dimensions,
-        output_video_dimensions = config.output_video_dimensions,
-        video_source = config.video_source,
-        framerate = config.framerate,
-        output_directory = output_directory,
-        show_video_output = config.show_video_output,
-        save_video_output = config.save_video_output,
-        video_codec = config.video_codec,
-        max_occlusions = config.max_occlusions,
-        max_occlusions_edge = config.max_occlusions_edge,
-        max_occlusions_on_flower = config.max_occlusions_on_flower,
-        tracking_insects = config.tracking_insects,
-        edge_pixels = config.edge_pixels)
+        output_config=OUTPUT_CONFIG,
+        source_config=SOURCE_CONFIG,
+        directory_config=directory_config)
     
-    if config.track_flowers:
+    if FLOWER_CONFIG.track:
         track_flowers = FlowerTracker(
-            flower_detector = config.flower_detector,
-            flower_iou_threshold = config.flower_iou_threshold,
-            flower_detection_confidence = config.flower_detection_confidence,
-            flower_classes = config.flower_classes,
-            prediction_method = config.prediction_method)
+            config = FLOWER_CONFIG)
         
         record_flowers = FlowerRecorder(
-            output_directory = output_directory,
-            flower_border = config.flower_border)
+            config = FLOWER_CONFIG,
+            directory_config = directory_config)
     
     track_and_record = TracknRecord(
-        video_source = config.video_source,
+        video_source = directory_config.source,
         RecordTracks = record_tracks,
         TrackInsects = track_insects,
-        TrackFlowers = track_flowers if config.track_flowers else None,
-        RecordFlowers = record_flowers if config.track_flowers else None,
-        flower_detection_interval = config.flower_detection_interval if config.track_flowers else None,
-        compressed_video = config.compressed_video,
-        info_filename = config.info_filename)
+        TrackFlowers = track_flowers if FLOWER_CONFIG.track else None,
+        RecordFlowers = record_flowers if FLOWER_CONFIG.track else None,
+        flower_detection_interval = FLOWER_CONFIG.tracking.detection_interval if FLOWER_CONFIG.track else None,
+        compressed_video = SOURCE_CONFIG.compressed_video,
+        info_filename = SOURCE_CONFIG.compression_info)
     
     
     # Run the TracknRecord instance
@@ -350,7 +231,7 @@ def main(config: Config):
 
 
 if __name__ == "__main__":
-    video_source = CONFIG.video.source.directory
+    video_source = DIRECTORY_CONFIG.source
     
     video_source = Path(video_source)
     if video_source.is_dir():
@@ -368,10 +249,10 @@ if __name__ == "__main__":
 
     for combo in parameter_combos:
         # Create a copy of the original CONFIG
-        this_config_dict = CONFIG.to_dict()
+        this_config_dict = DIRECTORY_CONFIG.to_dict()
         
         # Update the video_source field in the copied configuration
-        this_config_dict["video"]["source"]["directory"] = combo[0]  # combo is a tuple
+        this_config_dict["source"] = combo[0]  # combo is a tuple
         
         # Create a new Config object with the updated configuration
         this_config = Config(this_config_dict)

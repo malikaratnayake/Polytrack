@@ -261,54 +261,38 @@ class FGBG_Detector(TrackingMethods):
 class InsectTracker(DL_Detector, FGBG_Detector):
 
     def __init__(self,
-                 insect_detector: str,
-                 insect_iou_threshold: float,
-                 dl_detection_confidence: float,
-                 min_blob_area: int,
-                 max_blob_area: int,
-                 downscale_factor: int,
-                 dilate_kernel_size: int,
-                 movement_threshold: int,
-                 compressed_video: bool,
-                 max_interframe_travel: int,
-                 video_filepath: str,
-                 info_filename: str,
-                 iou_threshold: float,
-                 model_insects_large: str,
-                 prediction_method: str,
-                 tracking_insect_classes: list,
-                 additional_new_insect_verification: bool,
-                 additional_new_insect_verification_confidence: list,
-                 insect_boundary_extension: float,
-                 black_pixel_threshold: float) -> None:
+                 config: dict,
+                 source_config: dict,
+                 directory_config: dict) -> None:
+
         
         
         DL_Detector.__init__(self,
-                             insect_detector = insect_detector,
-                             model_insects_large = model_insects_large,
-                             insect_iou_threshold = insect_iou_threshold,
-                             dl_detection_confidence = dl_detection_confidence,
-                             tracking_insect_classes = tracking_insect_classes,
-                             black_pixel_threshold = black_pixel_threshold)
+                             insect_detector = config.detectors.primary.model,
+                             model_insects_large = config.detectors.secondary.model,
+                             insect_iou_threshold = config.detectors.primary.iou_threshold,
+                             dl_detection_confidence = config.detectors.primary.detection_confidence,
+                             tracking_insect_classes = config.classes,
+                             black_pixel_threshold = config.detectors.secondary.black_pixel_threshold)
         
         FGBG_Detector.__init__(self,        
-                                min_blob_area = min_blob_area,
-                                max_blob_area = max_blob_area,
-                                downscale_factor = downscale_factor,
-                                dilate_kernel_size = dilate_kernel_size,
-                                movement_threshold = movement_threshold,
-                                compressed_video = compressed_video,
-                                video_filepath = video_filepath,
-                                info_filename = info_filename,
-                                prediction_method = prediction_method)
+                                min_blob_area = config.tracking.min_blob_area,
+                                max_blob_area = config.tracking.max_blob_area,
+                                downscale_factor = config.detectors.foreground.downscale_factor,
+                                dilate_kernel_size = config.detectors.foreground.dilate_kernel_size,
+                                movement_threshold = config.detectors.foreground.movement_threshold,
+                                compressed_video = source_config.compressed_video,
+                                video_filepath = directory_config.source,
+                                info_filename = source_config.compression_info,
+                                prediction_method = config.tracking.prediction_method)
 
         self.predictions = []
-        self.max_interframe_travel = max_interframe_travel
-        self.compressed_video = compressed_video
-        self.iou_threshold = iou_threshold
-        self.insect_boundary_extension = insect_boundary_extension
-        self.additional_new_insect_verification = additional_new_insect_verification
-        self.additional_new_insect_verification_confidence = additional_new_insect_verification_confidence
+        self.max_interframe_travel = config.tracking.jump_distance
+        self.compressed_video = source_config.compressed_video
+        self.iou_threshold = config.tracking.iou_threshold
+        self.insect_boundary_extension = config.tracking.insect_boundary_extension
+        self.additional_new_insect_verification = config.detectors.secondary.use
+        self.additional_new_insect_verification_confidence = config.detectors.secondary.detection_confidence
         
         return None
     

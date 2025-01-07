@@ -86,20 +86,16 @@ class DL_Flower_Detector():
 class FlowerTracker(DL_Flower_Detector, TrackingMethods):
 
     def __init__(self,
-                flower_detector: str,
-                flower_iou_threshold: float,
-                flower_detection_confidence: float,
-                flower_classes: np.ndarray,
-                prediction_method: str) -> None:
+                config: dict) -> None:
         
         TrackingMethods.__init__(self,
-                                 prediction_method = prediction_method)
+                                 prediction_method = config.tracking.prediction_method)
         
         DL_Flower_Detector.__init__(self,
-                             flower_detector = flower_detector,
-                             flower_iou_threshold = flower_iou_threshold,
-                             flower_detection_confidence = flower_detection_confidence,
-                             flower_classes = flower_classes)
+                             flower_detector = config.detector.model,
+                             flower_iou_threshold = config.detector.iou_threshold,
+                             flower_detection_confidence = config.detector.detection_confidence,
+                             flower_classes = config.detector.classes)
         
         self.flower_predictions = []
         

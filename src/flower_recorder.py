@@ -10,13 +10,13 @@ LOGGER = logging.getLogger()
 class FlowerRecorder():
 
     def __init__(self,
-                    output_directory: str,
-                    flower_border: int) -> None:
+                    config: dict,
+                    directory_config: dict) -> None:
         
         self.flower_tracks = []
 
-        self.output_directory = output_directory
-        self.flower_border = flower_border
+        self.output_directory = directory_config.output
+        self.flower_border = config.border_extension
         self.last_update_frame = 0
         self.last_recorded_flower_positions = []
         self.flowers_list = []

@@ -128,41 +128,31 @@ class VideoWriter:
 class Recorder(VideoWriter):
 
     def __init__(self,
-                    input_video_dimensions: list[int],
-                    output_video_dimensions: int,
-                    video_source: str,
-                    framerate: int,
-                    output_directory: str,
-                    show_video_output: bool,
-                    save_video_output: bool,
-                    video_codec: str,
-                    max_occlusions: int,
-                    max_occlusions_edge: int,
-                    max_occlusions_on_flower,
-                    tracking_insects: list,
-                    edge_pixels: int) -> None:
+                 output_config: dict,
+                 source_config: dict,
+                 directory_config: dict) -> None:
 
         
         VideoWriter.__init__(self,
-                            input_video_dimensions = input_video_dimensions,
-                            output_video_dimensions = output_video_dimensions,
-                            video_source = video_source,
-                            framerate = framerate,
-                            tracking_insects= tracking_insects,
-                            output_directory = output_directory,
-                            show_video_output = show_video_output,
-                            save_video_output = save_video_output,
-                            video_codec = video_codec) 
+                            input_video_dimensions = source_config.resolution,
+                            output_video_dimensions = output_config.video.resolution,
+                            video_source = directory_config.source,
+                            framerate = source_config.framerate,
+                            tracking_insects= output_config.tracking.insect_labels,
+                            output_directory = directory_config.output,
+                            show_video_output = output_config.video.show,
+                            save_video_output = output_config.video.save,
+                            video_codec = output_config.video.codec) 
         
         self.insect_tracks = []
-        self.edge_pixels = edge_pixels
-        self.width, self.height, self.fps = input_video_dimensions[0], input_video_dimensions[1], framerate
-        self.max_occlusions = max_occlusions
-        self.max_occlusions_edge = max_occlusions_edge
-        self.max_occlusions_on_flower = max_occlusions_on_flower
-        self.tracking_insects = tracking_insects
+        self.edge_pixels = output_config.tracking.edge_pixels
+        self.width, self.height, self.fps = source_config.resolution[0], source_config.resolution[1], source_config.framerate
+        self.max_occlusions = output_config.tracking.max_occlusions
+        self.max_occlusions_edge = output_config.tracking.max_edge_occlusions
+        self.max_occlusions_on_flower = output_config.tracking.max_occlusions_on_flower
+        self.tracking_insects = output_config.tracking.insect_labels
         self.insect_count = 0
-        self.video_frame_width, self.video_frame_height = output_video_dimensions[0], output_video_dimensions[1]
+        self.video_frame_width, self.video_frame_height = output_config.video.resolution[0], output_config.video.resolution[1]
 
 
 
