@@ -420,5 +420,6 @@ if __name__ == "__main__":
             }
             
         )
+        print(this_config_dict)
         this_config = Config(**this_config_dict)
         main(this_config)
