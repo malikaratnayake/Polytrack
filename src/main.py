@@ -54,11 +54,7 @@ with open('./config/config.yaml', 'r') as f:
     yaml_config = yaml.safe_load(f)
 
 # Create Config instances
-DIRECTORY_CONFIG = Config(yaml_config["directories"])
-VIDEO_CONFIG = Config(yaml_config["video"])
-FLOWER_CONFIG = Config(yaml_config["flowers"])
-INSECT_CONFIG = Config(yaml_config["insect"])
-DETECTORS_CONFIG = Config(yaml_config["detectors"])
+CONFIG = Config(yaml_config)
 
 
 # class Config:
@@ -238,20 +234,20 @@ def main(config: Config):
 
     # Make sure opencv doesn't use too many threads and hog CPUs
     # cv2.setNumThreads(config.num_opencv_threads)
-
     # Use the input filepath to figure out the output filename
-    if type(config.video_source) is str:
-        output_filename = os.path.splitext(os.path.basename(config.video_source))[0]
+    # if type(config.video_source) is str:
+    if type(config.video.source.directory) is str:
+        output_filename = os.path.splitext(os.path.basename(config.video.source.directory))[0]
     else:
         output_filename = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Determine the output directory based on user input
 
-    if os.path.isdir(config.output_directory):
-        output_parent_directory = Path(config.output_directory, "Polytrack")
+    if os.path.isdir(config.video.output.directory):
+        output_parent_directory = Path(config.video.output.directory, "Polytrack")
         log_message = f"Outputting to {output_parent_directory}"
     else:
-        output_parent_directory = Path(config.video_source, "Polytrack")
+        output_parent_directory = Path(config.video.source.directory, "Polytrack")
         log_message = f"Output directory not specified or unavailable. Outputting to video source directory  {output_parent_directory}"
 
 
@@ -272,9 +268,11 @@ def main(config: Config):
     LOGGER.info(f"Outputting to {output_filename}")
     
     #Create a copy of the config file in the output directory
-    with open(output_parent_directory / "config.json", "w") as f:
-        json.dump(config.__dict__, f, indent=4)
-
+    
+    # with open(output_parent_directory / "config.json", "w") as f:
+    #     json.dump(config.__dict__, f, indent=4)
+    config.save_to_yaml(output_parent_directory / "config.yaml")
+    print(output_parent_directory / "config.yaml")
 
     # Create all of our threads
     track_insects = InsectTracker(
@@ -352,19 +350,13 @@ def main(config: Config):
 
 
 if __name__ == "__main__":
-
-    # Access the necessary parameters dynamically
-    video_source = DIRECTORY_CONFIG.source
-    output_directory = DIRECTORY_CONFIG.output
-
+    video_source = CONFIG.video.source.directory
     
     video_source = Path(video_source)
     if video_source.is_dir():
         video_source = [str(v) for v in video_source.iterdir() if v.suffix in ['.avi', '.mp4', '.h264', '.MTS']]
     elif type(video_source) is not list:
         video_source = [str(video_source)]
-
-    print(video_source)
 
 
     parameter_combos = product(
@@ -375,7 +367,14 @@ if __name__ == "__main__":
     ]
 
     for combo in parameter_combos:
-        this_config_dict = dict(zip(parameter_keys, combo))
-        # this_config = Config(**this_config_dict)
-        print(this_config_dict)
+        # Create a copy of the original CONFIG
+        this_config_dict = CONFIG.to_dict()
+        
+        # Update the video_source field in the copied configuration
+        this_config_dict["video"]["source"]["directory"] = combo[0]  # combo is a tuple
+        
+        # Create a new Config object with the updated configuration
+        this_config = Config(this_config_dict)
+
+        # Pass this_config to the main function
         main(this_config)
