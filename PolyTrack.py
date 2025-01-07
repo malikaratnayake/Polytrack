@@ -158,7 +158,8 @@ class TracknRecord():
                 for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
                 predicted_position = self.TrackInsects.predict_next(for_predictions)
 
-                if ((self.compressed_video and (nframe in self.full_frame_numbers)) or (not self.compressed_video and (nframe == 5 or nframe % self.flower_detection_interval == 0))) and self.TrackFlowers is not None:
+
+                if self.TrackFlowers is not None and ((self.compressed_video and (nframe in self.full_frame_numbers)) or (not self.compressed_video and (nframe == 5 or nframe % self.flower_detection_interval == 0))):
                     associated_flower_detections, missing_flowers, new_flower_detections = self.TrackFlowers.run_flower_tracker(frame, flower_predictions)
                     flower_detections_for_predictions, latest_flower_positions = self.RecordFlowers.record_flowers(mapped_frame_num, associated_flower_detections, missing_flowers, new_flower_detections)
                     flower_predictions = self.TrackFlowers.predict_next(flower_detections_for_predictions)
