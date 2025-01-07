@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 import logging
-from polytrack.TrackingMethods import TrackingMethods
+from tracking_methods import TrackingMethods
 import math
 import itertools
 

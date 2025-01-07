@@ -2,17 +2,17 @@ import os
 import json
 import logging
 import time
+import yaml
 from datetime import datetime
 from pathlib import Path
 from itertools import product
 import cv2
 import numpy as np
-# from ultralytics import YOLO
-from polytrack.InsectTracker import InsectTracker
-from polytrack.InsectRecorder import Recorder
-from polytrack.EventLogger import EventLogger
-from polytrack.FlowerTracker import FlowerTracker
-from polytrack.FlowerRecorder import FlowerRecorder
+from insect_tracker import InsectTracker
+from insect_recorder import Recorder
+from event_logger import EventLogger
+from flower_tracker import FlowerTracker
+from flower_recorder import FlowerRecorder
 
 LOGGER = logging.getLogger()
 
@@ -20,99 +20,141 @@ LOGGER = logging.getLogger()
 # LOGGER.setLevel(logging.INFO)
 
 class Config:
-    def __init__(
-        self,
-        video_source: str,
-        output_directory: str,
-        max_occlusions: int,
-        max_occlusions_edge: int,
-        max_occlusions_on_flower: int,
-        tracking_insects: list,
-        output_video_dimensions: int,
-        input_video_dimensions: int,
-        insect_detector: str,
-        insect_iou_threshold: float,
-        dl_detection_confidence: float,
-        min_blob_area: int,
-        max_blob_area: int,
-        downscale_factor: int,
-        dilate_kernel_size: int,
-        movement_threshold: int,
-        compressed_video: bool,
-        max_interframe_travel: int,
-        info_filename: str,
-        iou_threshold: float,
-        model_insects_large: str,
-        edge_pixels: int,
-        show_video_output: bool,
-        save_video_output: bool,
-        video_codec: str,
-        framerate: int,
-        prediction_method: str,
-        flower_detector: str,
-        flower_iou_threshold: float,
-        flower_detection_confidence: float,
-        flower_classes: np.ndarray,
-        flower_border: int,
-        tracking_insect_classes: np.ndarray,
-        track_flowers: bool,
-        additional_new_insect_verification: bool,
-        additional_new_insect_verification_confidence: list,
-        insect_boundary_extension: float,
-        black_pixel_threshold: float,
-        flower_detection_interval: int
+    """
+    Class to hold system configuration parameters.
+    """
+    def __init__(self, config_dict):
+        for key, value in config_dict.items():
+            if isinstance(value, dict):
+                # Recursively convert nested dictionaries into Config objects
+                value = Config(value)
+            setattr(self, key, value)
 
-    ) -> None:
+    def to_dict(self):
+        """
+        Convert the Config instance back to a dictionary.
+        """
+        return {
+            key: value.to_dict() if isinstance(value, Config) else value
+            for key, value in self.__dict__.items()
+        }
 
-        self.video_source = video_source
-        self.output_directory = output_directory
-        self.max_occlusions = max_occlusions
-        self.max_occlusions_edge = max_occlusions_edge
-        self.max_occlusions_on_flower = max_occlusions_on_flower
-        self.tracking_insects = tracking_insects
-        self.output_video_dimensions = output_video_dimensions
-        self.input_video_dimensions = input_video_dimensions
-        self.insect_detector = insect_detector
-        self.insect_iou_threshold = insect_iou_threshold
-        self.dl_detection_confidence = dl_detection_confidence
-        self.min_blob_area = min_blob_area
-        self.max_blob_area = max_blob_area
-        self.downscale_factor = downscale_factor
-        self.dilate_kernel_size = dilate_kernel_size
-        self.movement_threshold = movement_threshold
-        self.compressed_video = compressed_video
-        self.max_interframe_travel = max_interframe_travel
-        self.info_filename = info_filename
-        self.iou_threshold = iou_threshold
-        self.model_insects_large = model_insects_large
-        self.edge_pixels = edge_pixels
-        self.show_video_output = show_video_output
-        self.save_video_output = save_video_output
-        self.video_codec = video_codec
-        self.framerate = framerate
-        self.prediction_method = prediction_method
-        self.flower_detector = flower_detector
-        self.flower_iou_threshold = flower_iou_threshold
-        self.flower_detection_confidence = flower_detection_confidence
-        self.flower_classes = flower_classes
-        self.flower_border = flower_border
-        self.tracking_insect_classes = tracking_insect_classes
-        self.track_flowers = track_flowers
-        self.additional_new_insect_verification = additional_new_insect_verification
-        self.additional_new_insect_verification_confidence = additional_new_insect_verification_confidence
-        self.insect_boundary_extension = insect_boundary_extension
-        self.black_pixel_threshold = black_pixel_threshold
-        self.flower_detection_interval = flower_detection_interval
+    def save_to_yaml(self, file_path):
+        """
+        Save the updated configuration to a YAML file.
+
+        Args:
+            file_path (str): Path to the YAML file where the configuration will be saved.
+        """
+        with open(file_path, 'w') as f:
+            yaml.dump(self.to_dict(), f)
+
+# Load system configuration from YAML file
+with open('./config/config.yaml', 'r') as f:
+    yaml_config = yaml.safe_load(f)
+
+# Create Config instances
+DIRECTORY_CONFIG = Config(yaml_config["directories"])
+VIDEO_CONFIG = Config(yaml_config["video"])
+FLOWER_CONFIG = Config(yaml_config["flowers"])
+INSECT_CONFIG = Config(yaml_config["insect"])
+DETECTORS_CONFIG = Config(yaml_config["detectors"])
 
 
+# class Config:
+#     def __init__(
+#         self,
+#         video_source: str,
+#         output_directory: str,
+#         max_occlusions: int,
+#         max_occlusions_edge: int,
+#         max_occlusions_on_flower: int,
+#         tracking_insects: list,
+#         output_video_dimensions: int,
+#         input_video_dimensions: int,
+#         insect_detector: str,
+#         insect_iou_threshold: float,
+#         dl_detection_confidence: float,
+#         min_blob_area: int,
+#         max_blob_area: int,
+#         downscale_factor: int,
+#         dilate_kernel_size: int,
+#         movement_threshold: int,
+#         compressed_video: bool,
+#         max_interframe_travel: int,
+#         info_filename: str,
+#         iou_threshold: float,
+#         model_insects_large: str,
+#         edge_pixels: int,
+#         show_video_output: bool,
+#         save_video_output: bool,
+#         video_codec: str,
+#         framerate: int,
+#         prediction_method: str,
+#         flower_detector: str,
+#         flower_iou_threshold: float,
+#         flower_detection_confidence: float,
+#         flower_classes: np.ndarray,
+#         flower_border: int,
+#         tracking_insect_classes: np.ndarray,
+#         track_flowers: bool,
+#         additional_new_insect_verification: bool,
+#         additional_new_insect_verification_confidence: list,
+#         insect_boundary_extension: float,
+#         black_pixel_threshold: float,
+#         flower_detection_interval: int
+
+#     ) -> None:
+
+#         self.video_source = video_source
+#         self.output_directory = output_directory
+#         self.max_occlusions = max_occlusions
+#         self.max_occlusions_edge = max_occlusions_edge
+#         self.max_occlusions_on_flower = max_occlusions_on_flower
+#         self.tracking_insects = tracking_insects
+#         self.output_video_dimensions = output_video_dimensions
+#         self.input_video_dimensions = input_video_dimensions
+#         self.insect_detector = insect_detector
+#         self.insect_iou_threshold = insect_iou_threshold
+#         self.dl_detection_confidence = dl_detection_confidence
+#         self.min_blob_area = min_blob_area
+#         self.max_blob_area = max_blob_area
+#         self.downscale_factor = downscale_factor
+#         self.dilate_kernel_size = dilate_kernel_size
+#         self.movement_threshold = movement_threshold
+#         self.compressed_video = compressed_video
+#         self.max_interframe_travel = max_interframe_travel
+#         self.info_filename = info_filename
+#         self.iou_threshold = iou_threshold
+#         self.model_insects_large = model_insects_large
+#         self.edge_pixels = edge_pixels
+#         self.show_video_output = show_video_output
+#         self.save_video_output = save_video_output
+#         self.video_codec = video_codec
+#         self.framerate = framerate
+#         self.prediction_method = prediction_method
+#         self.flower_detector = flower_detector
+#         self.flower_iou_threshold = flower_iou_threshold
+#         self.flower_detection_confidence = flower_detection_confidence
+#         self.flower_classes = flower_classes
+#         self.flower_border = flower_border
+#         self.tracking_insect_classes = tracking_insect_classes
+#         self.track_flowers = track_flowers
+#         self.additional_new_insect_verification = additional_new_insect_verification
+#         self.additional_new_insect_verification_confidence = additional_new_insect_verification_confidence
+#         self.insect_boundary_extension = insect_boundary_extension
+#         self.black_pixel_threshold = black_pixel_threshold
+#         self.flower_detection_interval = flower_detection_interval
 
 
 
-# Create Config object from JSON file
-with open("config.json", "r") as f:
-    __config_dict = json.load(f)
 
-CONFIG = Config(**__config_dict)
+
+# # Create Config object from JSON file
+# with open("config.json", "r") as f:
+#     __config_dict = json.load(f)
+
+# CONFIG = Config(**__config_dict)
 
 
 
@@ -310,61 +352,19 @@ def main(config: Config):
 
 
 if __name__ == "__main__":
-    video_source = CONFIG.video_source
-    output_directory = CONFIG.output_directory
-    max_occlusions = CONFIG.max_occlusions
-    max_occlusions_edge = CONFIG.max_occlusions_edge
-    max_occlusions_on_flower = CONFIG.max_occlusions_on_flower
-    tracking_insects = CONFIG.tracking_insects
-    input_video_dimensions = CONFIG.input_video_dimensions
-    output_video_dimensions = CONFIG.output_video_dimensions
-    insect_detector = CONFIG.insect_detector
-    insect_iou_threshold = CONFIG.insect_iou_threshold
-    dl_detection_confidence = CONFIG.dl_detection_confidence
-    min_blob_area = CONFIG.min_blob_area
-    max_blob_area = CONFIG.max_blob_area
-    downscale_factor = CONFIG.downscale_factor
-    dilate_kernel_size = CONFIG.dilate_kernel_size
-    movement_threshold = CONFIG.movement_threshold
-    compressed_video = CONFIG.compressed_video
-    max_interframe_travel = CONFIG.max_interframe_travel
-    info_filename = CONFIG.info_filename
-    iou_threshold = CONFIG.iou_threshold
-    model_insects_large = CONFIG.model_insects_large
-    edge_pixels = CONFIG.edge_pixels
-    show_video_output = CONFIG.show_video_output
-    save_video_output = CONFIG.save_video_output
-    video_codec = CONFIG.video_codec
-    prediction_method = CONFIG.prediction_method
-    flower_detector = CONFIG.flower_detector
-    flower_iou_threshold = CONFIG.flower_iou_threshold
-    flower_detection_confidence = CONFIG.flower_detection_confidence
-    flower_classes = CONFIG.flower_classes
-    flower_border = CONFIG.flower_border
-    tracking_insect_classes = CONFIG.tracking_insect_classes
-    track_flowers = CONFIG.track_flowers
-    additional_new_insect_verification = CONFIG.additional_new_insect_verification
-    additional_new_insect_verification_confidence = CONFIG.additional_new_insect_verification_confidence
-    insect_boundary_extension = CONFIG.insect_boundary_extension
-    black_pixel_threshold = CONFIG.black_pixel_threshold
-    flower_detection_interval = CONFIG.flower_detection_interval
-    
 
+    # Access the necessary parameters dynamically
+    video_source = DIRECTORY_CONFIG.source
+    output_directory = DIRECTORY_CONFIG.output
+
+    
     video_source = Path(video_source)
     if video_source.is_dir():
         video_source = [str(v) for v in video_source.iterdir() if v.suffix in ['.avi', '.mp4', '.h264', '.MTS']]
     elif type(video_source) is not list:
         video_source = [str(video_source)]
 
-    
-
-
-    # if type(downscale_factor) is not list:
-    #     downscale_factor = [downscale_factor]
-    # if type(dilate_kernal_size) is not list:
-    #     dilate_kernel_size = [dilate_kernal_size]
-    # if type(movement_threshold) is not list:
-    #     movement_threshold = [movement_threshold]
+    print(video_source)
 
 
     parameter_combos = product(
@@ -373,52 +373,9 @@ if __name__ == "__main__":
     parameter_keys = [
         "video_source"
     ]
-    # print("Length of parameter_combos:", len(parameter_combos))
 
     for combo in parameter_combos:
         this_config_dict = dict(zip(parameter_keys, combo))
-        this_config_dict.update(
-            {
-                "output_directory": CONFIG.output_directory,
-                "max_occlusions": CONFIG.max_occlusions,
-                "max_occlusions_edge": CONFIG.max_occlusions_edge,
-                "max_occlusions_on_flower": CONFIG.max_occlusions_on_flower,
-                "tracking_insects": CONFIG.tracking_insects,
-                "input_video_dimensions": CONFIG.input_video_dimensions,
-                "output_video_dimensions": CONFIG.output_video_dimensions,
-                "insect_detector": CONFIG.insect_detector,
-                "insect_iou_threshold": CONFIG.insect_iou_threshold,
-                "dl_detection_confidence": CONFIG.dl_detection_confidence,
-                "min_blob_area": CONFIG.min_blob_area,
-                "max_blob_area": CONFIG.max_blob_area,
-                "downscale_factor": CONFIG.downscale_factor,
-                "dilate_kernel_size": CONFIG.dilate_kernel_size,
-                "movement_threshold": CONFIG.movement_threshold,
-                "compressed_video": CONFIG.compressed_video,
-                "max_interframe_travel": CONFIG.max_interframe_travel,
-                "info_filename": CONFIG.info_filename,
-                "iou_threshold": CONFIG.iou_threshold,
-                "model_insects_large": CONFIG.model_insects_large,
-                "edge_pixels": CONFIG.edge_pixels,
-                "show_video_output": CONFIG.show_video_output,
-                "save_video_output": CONFIG.save_video_output,
-                "video_codec": CONFIG.video_codec,
-                "framerate": CONFIG.framerate,
-                "prediction_method": CONFIG.prediction_method,
-                "flower_detector" : CONFIG.flower_detector,
-                "flower_iou_threshold" : CONFIG.flower_iou_threshold,
-                "flower_detection_confidence": CONFIG.flower_detection_confidence,
-                "flower_classes" : CONFIG.flower_classes,
-                "flower_border" : CONFIG.flower_border,
-                "tracking_insect_classes" : CONFIG.tracking_insect_classes,
-                "track_flowers" : CONFIG.track_flowers,
-                "additional_new_insect_verification": CONFIG.additional_new_insect_verification,
-                "additional_new_insect_verification_confidence": CONFIG.additional_new_insect_verification_confidence,
-                "insect_boundary_extension": CONFIG.insect_boundary_extension,
-                "black_pixel_threshold": CONFIG.black_pixel_threshold,
-                "flower_detection_interval": CONFIG.flower_detection_interval
-            }
-            
-        )
-        this_config = Config(**this_config_dict)
+        # this_config = Config(**this_config_dict)
+        print(this_config_dict)
         main(this_config)

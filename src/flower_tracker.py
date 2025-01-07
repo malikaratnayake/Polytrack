@@ -1,7 +1,7 @@
 import numpy as np
 from ultralytics import YOLO
 import math
-from polytrack.TrackingMethods import TrackingMethods
+from tracking_methods import TrackingMethods
 import logging
 LOGGER = logging.getLogger()
 

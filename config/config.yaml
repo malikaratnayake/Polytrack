@@ -1,0 +1,65 @@
+# Video Configurations
+directories:
+  source: "./data/Blueberry/Input/"
+  output: "./data/Blueberry/Output/"
+video:
+  source:
+    # directory: "./data/Blueberry/Input/"  # Path to the directory containing input videos.
+    resolution: [1920, 1080]             # Resolution of the input videos in pixels [width, height].
+    framerate: 30                        # Frame rate of the input video (frames per second).
+    compressed: False                    # Whether the input video is compressed.
+    compression_info: ""                 # Additional information about the compression format (if any).
+
+  output:
+    # directory: "./data/Blueberry/Output/"  # Path to save the processed output videos.
+    resolution: [1280, 720]                # Resolution of the output videos in pixels [width, height].
+    codec: "DIVX"                          # Codec used for video compression in the output.
+    show: True                             # Whether to display the video output during processing.
+    save: True                             # Whether to save the processed video output to a file.
+
+# Detection Configurations
+detectors:
+  insect_detector: 
+    model: "/Users/mrat0010/Documents/GitHub/Polytrack_PUB/data/yolov8_models/blueberry_bee.pt"  # Path to the primary insect detection model.
+    iou_threshold: 0                     # Intersection over Union (IoU) threshold for detections.
+    confidence_threshold: 0.2            # Minimum confidence score required for a detection.
+
+  secondary_insect_detector:
+    verify: True                         # Enable additional verification for new insect detections.
+    model: "/Users/mrat0010/Documents/GitHub/Polytrack_PUB/data/yolov8_models/blueberry_bee.pt"  # Path to the secondary detection model.
+    confidence_threshold: [0.2, 0.2, 0.2] # Confidence thresholds for verifying different insect classes.
+    black_pixel_threshold: 0.5           # Threshold for black pixel density in detection areas.
+
+  foreground_detector:
+    downscale_factor: 1                  # Downscaling factor for input frames during preprocessing.
+    dilate_kernel_size: 8                # Size of the dilation kernel used for blob detection.
+    movement_threshold: 120              # Pixel intensity threshold for detecting movement.
+
+  flower_detector:
+    model: "./data/yolov8_models/flowers.pt"  # Path to the flower detection model.
+    iou_threshold: 0                     # Intersection over Union (IoU) threshold for flower detections.
+    confidence_threshold: 0.1            # Minimum confidence score required for a flower detection.
+
+# Insect Tracking Configurations
+insect:
+  classes: [0, 1, 2]                     # Class IDs for tracked insects.
+  labels: ["honeybee"]                   # Human-readable labels for tracked insect classes.
+  tracking_parameters:
+    prediction_method: "ConstantVelocity" # Method used for predicting insect movements.
+    max_occlusions: 300                  # Maximum number of frames an insect can remain occluded.
+    max_edge_occlusions: 32              # Maximum number of frames an insect can be occluded near the edge.
+    min_blob_area: 5                     # Minimum area (in pixels) of a detected insect blob.
+    max_blob_area: 5000                  # Maximum area (in pixels) of a detected insect blob.
+    jump_distance: [200, 35]             # Maximum allowable distance (pixels) an insect can jump between frames [x, y].
+    insect_boundary_extension: 2.5       # Boundary extension factor for insect regions.
+    edge_pixels: 40                      # Number of pixels near the edge of the frame considered for edge cases.
+
+# Flower Tracking Configurations
+flowers:
+  track: True                            # Whether to enable flower tracking.
+  classes: [0]                           # Class IDs for tracked flowers.
+  labels: ["flower"]                     # Human-readable labels for tracked flower classes.
+  tracking_parameters:
+    detection_interval: 300              # Number of frames between flower detection updates.
+    max_occlusions_on_flower: 300        # Maximum number of frames a flower can remain occluded.
+    border_extension: 1.75               # Extension factor for flower detection boundaries.
