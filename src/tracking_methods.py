@@ -87,7 +87,11 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
     def __init__(self,
                  prediction_method: str) -> None:
         
-        self.prediction_method = prediction_method
+        try:
+            self.prediction_method = prediction_method[0]
+        except:
+            self.prediction_method = "ConstantVelocity"
+
         LOGGER.info(f"Prediction method: {self.prediction_method}")
 
         pass
@@ -112,7 +116,7 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
 
         return col_ind
     
-    def assign_detections_to_tracks(self,detections, predictions, cost_threshold=0.0):
+    def hungarian_assignment(self,detections, predictions, cost_threshold=0.0):
         """
         Assigns detections to predicted tracks using the Hungarian algorithm.
 
@@ -143,6 +147,71 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
         for det_idx, pred_idx in zip(detection_indices, prediction_indices):
             if cost_matrix[det_idx][pred_idx] <= cost_threshold:
                 assignments.append((det_idx, pred_idx))
+
+        return assignments
+    
+    def assign_by_proximity(self, detections, predictions, cost_threshold=0.0):
+        """
+        Assigns detections to predicted tracks using association by proximity.
+
+        Args:
+            detections (list): List of detection coordinates (2D numpy array).
+            predictions (list): List of predicted track coordinates (2D numpy array).
+            cost_threshold (float): Cost threshold to filter assignments.
+
+        Returns:
+            list: List of tuples representing assignments (detection_index, prediction_index).
+        """
+
+        num_detections = len(detections)
+        num_predictions = len(predictions)
+
+        if num_detections == 0 or num_predictions == 0:
+            return []
+
+        cost_matrix = np.full((num_detections, num_predictions), np.inf)
+
+        LOGGER.debug(f"Number of detections: {num_detections}, Number of predictions: {num_predictions}")
+
+        # Calculate pairwise distances (or costs) between detections and predictions
+        for i in range(num_detections):
+            for j in range(num_predictions):
+                # Calculate Euclidean distance between detection[i] and prediction[j]
+                cost_matrix[i][j] = np.linalg.norm(
+                    np.array([detections[i][0], detections[i][1]]) - np.array([predictions[j][1], predictions[j][2]])
+                )
+
+        assignments = []
+        unmatched_detections = list(range(num_detections))
+        unmatched_predictions = list(range(num_predictions))
+
+        while True:
+            # Check if all elements in the cost_matrix are np.inf
+            if np.all(cost_matrix == np.inf):
+                break
+
+            # Find the minimum value in the cost_matrix
+            min_dist_idx = np.unravel_index(np.argmin(cost_matrix), cost_matrix.shape)
+            min_dist = cost_matrix[min_dist_idx]
+
+            # If the minimum distance is greater than the threshold, stop the assignment process
+            if min_dist > cost_threshold:
+                break
+
+            det_idx, pred_idx = min_dist_idx
+            assignments.append((det_idx, pred_idx))
+
+            # Remove the assigned detection and prediction from further consideration
+            unmatched_detections.remove(det_idx)
+            unmatched_predictions.remove(pred_idx)
+
+            # Invalidate this match to prevent it from being reused
+            cost_matrix[det_idx, :] = np.inf
+            cost_matrix[:, pred_idx] = np.inf
+
+        LOGGER.debug(f"Assignments: {assignments}")
+        LOGGER.debug(f"Unmatched detections: {unmatched_detections}")
+        LOGGER.debug(f"Unmatched predictions: {unmatched_predictions}")
 
         return assignments
     

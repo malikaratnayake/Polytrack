@@ -310,7 +310,10 @@ class Recorder(VideoWriter):
             _x = int(float(detection[0]))
             _y = int(float(detection[1]))
             # _area = int(float(detection[2]))
-            _species = int(detection[3])
+            if len(detection) == 3:
+                _species = 0
+            else:
+                _species = int(detection[3])
             _species_name = self.tracking_insects[_species]
             # _confidence = float(detection[4])
             # _status = 'In'
