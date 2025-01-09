@@ -1,7 +1,7 @@
 # Directories for Input and Output Data
 directories:
-  source: "./data/Blueberry/Input/"    # Path to the directory containing input videos.
-  output: "./data/Blueberry/Output/"   # Path to save the processed output videos.
+  source: "./data/Input/"    # Path to the directory containing input videos.
+  output: "./data/Output/"   # Path to save the processed output videos.
 
 # Configuration for Input Video Properties
 source:
