@@ -1,8 +1,0 @@
-{ 
-
-    "flower_detection_interval": 300,
-    "max_occlusions_on_flower": 300,
-    "flower_classes" : [0],
-    "flower_border" : 1.75
-}
-
