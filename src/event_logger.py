@@ -6,6 +6,7 @@ logger = logging.getLogger()
 
 class EventLogger:
     logger = logging.getLogger()
+    pre_logger_messages = []  # Temporary storage for messages before logger is configured
 
     def __init__(self, _log_directory):
         # Set the logging level
@@ -27,7 +28,21 @@ class EventLogger:
         logger.addHandler(console_handler)
         logger.addHandler(file_handler)
 
+        # Log the messages stored before the logger was configured
+        self._flush_pre_logger()
+
         return None
+    
+    def _flush_pre_logger(self):
+        """Log messages stored before the logger was configured."""
+        for level, msg, args, kwargs in self.pre_logger_messages:
+            getattr(self.logger, level)(msg, *args, **kwargs)
+        self.pre_logger_messages.clear()
+
+    @classmethod
+    def temp_log(cls, level, msg, *args, **kwargs):
+        """Temporarily store log messages before the logger is configured."""
+        cls.pre_logger_messages.append((level, msg, args, kwargs))
     
     def debug(self, msg, *args, **kwargs):
         """Log a debug message."""

@@ -1,5 +1,4 @@
 import os
-import json
 import logging
 import time
 import yaml
@@ -13,6 +12,7 @@ from insect_recorder import Recorder
 from event_logger import EventLogger
 from flower_tracker import FlowerTracker
 from flower_recorder import FlowerRecorder
+import argparse
 
 LOGGER = logging.getLogger()
 
@@ -49,16 +49,6 @@ class Config:
         with open(file_path, 'w') as f:
             yaml.dump(self.to_dict(), f)
 
-# Load system configuration from YAML file
-with open('./config/config.yaml', 'r') as f:
-    yaml_config = yaml.safe_load(f)
-
-# Create Config instances
-DIRECTORY_CONFIG = Config(yaml_config["directories"])
-INSECT_CONFIG = Config(yaml_config["insect_tracking"])
-FLOWER_CONFIG = Config(yaml_config["flower_tracking"])
-OUTPUT_CONFIG = Config(yaml_config["output"])
-SOURCE_CONFIG = Config(yaml_config["source"])
 
 
 
@@ -132,12 +122,7 @@ class TracknRecord():
 
 
 
-
-
-
 def main(directory_config: Config):
-    start = time.time()
-    
 
     if type(directory_config.source) is str:
         output_filename = os.path.splitext(os.path.basename(directory_config.source))[0]
@@ -148,14 +133,14 @@ def main(directory_config: Config):
 
     if os.path.isdir(directory_config.output):
         output_parent_directory = Path(directory_config.output, "Polytrack")
-        log_message = f"Outputting to {output_parent_directory}"
+        EventLogger.temp_log('info',f"Outputting to {output_parent_directory}")
     else:
-        output_parent_directory = Path(directory_config.source, "Polytrack")
-        log_message = f"Output directory not specified or unavailable. Outputting to video source directory  {output_parent_directory}"
-
+        output_parent_directory = Path(os.path.dirname(directory_config.source), "Polytrack")
+        EventLogger.temp_log('info',f"Output directory not specified or unavailable. Outputting to video source directory  {output_parent_directory}")
 
 
     # output_parent_directory = Path(config.output_directory , "EcoMotionZip")
+
     if not output_parent_directory.exists():
         os.makedirs(output_parent_directory, exist_ok=True)
 
@@ -166,8 +151,6 @@ def main(directory_config: Config):
         output_directory.mkdir()
 
     EventLogger(output_directory)
-    LOGGER.info(f"Starting processing at :  {datetime.fromtimestamp(start)}")
-    # LOGGER.info(f"Running main() with Config:  {config.__dict__}")
     LOGGER.info(f"Outputting to {output_filename}")
     
     # Create a copy of the config file in the output directory
@@ -235,6 +218,34 @@ def main(directory_config: Config):
 
 
 if __name__ == "__main__":
+
+    EventLogger.temp_log('info',f"Starting processing at :  {datetime.fromtimestamp(time.time())}")
+
+    default_config_directory = Path(__file__).resolve().parent.parent / "config" / "config.yaml"
+
+    # Parse command line arguments
+    ap = argparse.ArgumentParser(prog='Polytrack',
+                                 description='Polytrack is design to track unmarked freely foraging insects in outdoor environments and monitor their pollination behaviour.')
+    ap.add_argument("--config", nargs='?', dest='custom_config', default=default_config_directory,
+                help="Please Enter the directory of custom config.yaml file", type=str)
+    
+    args = ap.parse_args()
+    config_directory = args.custom_config
+
+    EventLogger.temp_log('info',f"Using config file: {config_directory}")
+
+    # Load system configuration from YAML file
+    with open(config_directory, 'r') as f:
+        yaml_config = yaml.safe_load(f)
+
+    # Create Config instances
+    DIRECTORY_CONFIG = Config(yaml_config["directories"])
+    INSECT_CONFIG = Config(yaml_config["insect_tracking"])
+    FLOWER_CONFIG = Config(yaml_config["flower_tracking"])
+    OUTPUT_CONFIG = Config(yaml_config["output"])
+    SOURCE_CONFIG = Config(yaml_config["source"])
+    
+    
     video_source = DIRECTORY_CONFIG.source
     
     video_source = Path(video_source)
