@@ -75,8 +75,7 @@ class TracknRecord():
         self.flower_detection_interval = flower_detection_interval
         self.skip_frames = skip_frames
         self.vid = cv2.VideoCapture(self.video_source)
-        LOGGER.info(f"Processing video: {self.video_source}")
-        
+        LOGGER.info(f"Processing video: {self.video_source}")        
 
         if self.compressed_video:
             _, _, self.full_frame_numbers = self.TrackInsects.get_compression_details(self.video_source, self.info_filename)
@@ -127,6 +126,8 @@ class TracknRecord():
 
 
 def main(directory_config: Config):
+
+    start = time.time()
 
     if type(directory_config.source) is str:
         output_filename = os.path.splitext(os.path.basename(directory_config.source))[0]
@@ -202,7 +203,7 @@ def main(directory_config: Config):
         TrackInsects = track_insects,
         TrackFlowers = track_flowers if FLOWER_CONFIG.track else None,
         RecordFlowers = record_flowers if FLOWER_CONFIG.track else None,
-        flower_detection_interval = FLOWER_CONFIG.tracking.detection_interval if FLOWER_CONFIG.track else None,
+        flower_detection_interval = FLOWER_CONFIG.detection_interval if FLOWER_CONFIG.track else None,
         compressed_video = SOURCE_CONFIG.compressed_video,
         info_filename = SOURCE_CONFIG.compression_info,
         skip_frames = SOURCE_CONFIG.skip_frames)
