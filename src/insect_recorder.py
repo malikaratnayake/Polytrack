@@ -92,8 +92,10 @@ class VideoWriter:
 
 
         cv2.putText(frame, f"Compressed Frame: {str(nframe)} | Uncompressed Frame: {str(mapped_frame_num)}", (20, 20), cv2.FONT_HERSHEY_DUPLEX , 0.8, (255,255,255), 1, cv2.LINE_AA)
-
+   
         output_frame = cv2.add(frame, self.trajectory_frame)
+
+
 
         if self.show_video_output:
             cv2.imshow("PolyTrack - Insect Tracks only", cv2.resize(output_frame, (self.output_video_dimensions[0], self.output_video_dimensions[1])))
@@ -152,6 +154,7 @@ class Recorder(VideoWriter):
         self.max_occlusions_edge = insect_config.max_edge_occlusions
         self.max_occlusions_on_flower = insect_config.max_occlusions_on_flower
         self.tracking_insects = insect_config.labels
+        self.min_track_length = insect_config.min_track_length
         self.insect_count = 0
         self.video_frame_width, self.video_frame_height = output_config.resolution[0], output_config.resolution[1]
 
@@ -369,7 +372,7 @@ class Recorder(VideoWriter):
         insect_track = insect_record[3]
 
         detected_positions = len([record[1] for record in insect_track if record[1] is not None])
-        if detected_positions >= 5:
+        if detected_positions >= self.min_track_length:
             filename = str(insect_species)+'_'+str(insect_num)
             output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'.csv'
 

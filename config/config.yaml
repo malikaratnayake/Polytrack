@@ -11,6 +11,8 @@ source:
   framerate: 30                        # Frame rate of the input video (frames per second).
   compressed_video: False              # Indicates if the input video is compressed.
   compression_info: ""                 # Filepath to the additional information document on compression.
+  skip_frames: False                   # Skip and only process odd frames. To be used with deinterlaced videos if applicable. 
+
 
 # Configuration for Output Video Properties
 output:
@@ -55,6 +57,8 @@ insect_tracking:
   jump_distance:                       # Maximum distance (in pixels) insects can move between frames.
     - 200                              # Maximum horizontal jump distance allowed with AI detection.
     - 200                              # Maximum vertical jump distance allowed with foreground detection. Default: 35
+  min_track_length: 20                 # Minimum number of frames an insect must be tracked to be considered valid.
+
 
   # Detector-Specific Properties
   detector_properties:
@@ -70,10 +74,14 @@ insect_tracking:
       black_pixel_threshold: 0.5                      # Threshold for black pixel density in detected regions.
 
     fgbg_detection:
+      model: 
+      # - 'FrameDifference'                             # Calculate the difference between consecutive frames.
+      - 'MOG2'                                        # Gaussian Mixture-based Background/Foreground Segmentation.
       downscale_factor: 1                             # Scaling factor for downsampling frames during preprocessing.
       dilate_kernel_size: 6                           # Kernel size for dilation operation during blob detection. (Default: 8)
       movement_threshold: 80                          # Intensity threshold for detecting motion. (Default: 120)
       show: False                                     # Display the output of the foreground detection model.
+      clean_detections: True                          # Compare detections made in adjacent frames to remove duplicates.
 
 # Flower Tracking Configuration
 flower_tracking:

@@ -62,6 +62,7 @@ class TracknRecord():
                  RecordFlowers: FlowerRecorder,
                  compressed_video: bool,
                  info_filename: str,
+                 skip_frames: bool,
                  flower_detection_interval:int) -> None:
         
         self.video_source = video_source
@@ -72,6 +73,7 @@ class TracknRecord():
         self.compressed_video = compressed_video
         self.info_filename = info_filename
         self.flower_detection_interval = flower_detection_interval
+        self.skip_frames = skip_frames
         self.vid = cv2.VideoCapture(self.video_source)
         LOGGER.info(f"Processing video: {self.video_source}")
         
@@ -88,23 +90,25 @@ class TracknRecord():
 
             if frame is not None:
                 nframe += 1
-                mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
-                fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects = self.TrackInsects.run_tracker(frame, nframe, predicted_position)
-                for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
-                predicted_position = self.TrackInsects.predict_next(for_predictions)
-
-
-                if self.TrackFlowers is not None and ((self.compressed_video and (nframe in self.full_frame_numbers)) or (not self.compressed_video and (nframe == 5 or nframe % self.flower_detection_interval == 0))):
-                    associated_flower_detections, missing_flowers, new_flower_detections = self.TrackFlowers.run_flower_tracker(frame, flower_predictions)
-                    flower_detections_for_predictions, latest_flower_positions = self.RecordFlowers.record_flowers(mapped_frame_num, associated_flower_detections, missing_flowers, new_flower_detections)
-                    flower_predictions = self.TrackFlowers.predict_next(flower_detections_for_predictions)
-                    self.RecordTracks.update_flower_positions(latest_flower_positions, self.RecordFlowers.flower_border)
-
-
-                if (len(for_predictions) > 0) and self.RecordFlowers is not None:
-                    insect_flower_visits = self.RecordFlowers.monitor_flower_visits(for_predictions)
-                    self.RecordFlowers.record_flower_visitations(insect_flower_visits, mapped_frame_num, self.RecordTracks.insect_tracks)
+                if not self.skip_frames or (self.skip_frames and nframe % 2 != 0):
                     
+                    mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
+                    fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects = self.TrackInsects.run_tracker(frame, nframe, predicted_position)
+                    for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
+                    predicted_position = self.TrackInsects.predict_next(for_predictions)
+
+
+                    if self.TrackFlowers is not None and ((self.compressed_video and (nframe in self.full_frame_numbers)) or (not self.compressed_video and (nframe == 5 or nframe % self.flower_detection_interval == 0))):
+                        associated_flower_detections, missing_flowers, new_flower_detections = self.TrackFlowers.run_flower_tracker(frame, flower_predictions)
+                        flower_detections_for_predictions, latest_flower_positions = self.RecordFlowers.record_flowers(mapped_frame_num, associated_flower_detections, missing_flowers, new_flower_detections)
+                        flower_predictions = self.TrackFlowers.predict_next(flower_detections_for_predictions)
+                        self.RecordTracks.update_flower_positions(latest_flower_positions, self.RecordFlowers.flower_border)
+
+
+                    if (len(for_predictions) > 0) and self.RecordFlowers is not None:
+                        insect_flower_visits = self.RecordFlowers.monitor_flower_visits(for_predictions)
+                        self.RecordFlowers.record_flower_visitations(insect_flower_visits, mapped_frame_num, self.RecordTracks.insect_tracks)
+                        
 
                 if cv2.waitKey(1) & 0xFF == ord('q'): break
 
@@ -200,7 +204,8 @@ def main(directory_config: Config):
         RecordFlowers = record_flowers if FLOWER_CONFIG.track else None,
         flower_detection_interval = FLOWER_CONFIG.tracking.detection_interval if FLOWER_CONFIG.track else None,
         compressed_video = SOURCE_CONFIG.compressed_video,
-        info_filename = SOURCE_CONFIG.compression_info)
+        info_filename = SOURCE_CONFIG.compression_info,
+        skip_frames = SOURCE_CONFIG.skip_frames)
     
     
     # Run the TracknRecord instance

@@ -147,10 +147,11 @@ class DL_Detector():
 
 class FGBG_Detector(TrackingMethods):
 
-    prev_frame = None
+    
     last_full_frame = None
 
     def __init__(self,
+                 model: list,
                  min_blob_area: int,
                  max_blob_area: int,
                  downscale_factor: int,
@@ -172,6 +173,11 @@ class FGBG_Detector(TrackingMethods):
         self.video_filepath = video_filepath
         self.info_filename = info_filename
         self.show_fgbg_frame = show_fgbg_frame
+        self.fgbf_model = model[0]
+        if self.fgbf_model  == "MOG2":
+            self.mog2_model = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=100, detectShadows=True)
+        else:
+            self.prev_frame = None
 
         if self.compressed_video:
             self.video_frame_num, self.actual_frame_num, self.full_frame_num = self.get_compression_details(self.video_filepath, self.info_filename)
@@ -206,11 +212,14 @@ class FGBG_Detector(TrackingMethods):
     def detect_foreground_blobs(self,
                                 frame: np.ndarray) -> np.ndarray:
         
-        if self.prev_frame is None:
+        if self.fgbf_model != "MOG2" and self.prev_frame is None:
             self.prev_frame = frame
         
         # Compute pixel difference between consecutive frames 
-        diff_frame = cv2.absdiff(frame, self.prev_frame)
+        if self.fgbf_model == "MOG2":
+            diff_frame = self.mog2_model.apply(frame)
+        else:
+            diff_frame = cv2.absdiff(frame, self.prev_frame)
 
         # Convert to grayscale
         dilated_frame = cv2.dilate(diff_frame, kernel=self.dilation_kernel)
@@ -218,12 +227,13 @@ class FGBG_Detector(TrackingMethods):
         # Cut off pixels that did not have "enough" movement. This is now a 2D array of just 1s and 0s
         _, threshed_diff = cv2.threshold(src=dilated_frame, thresh=self.movement_threshold, maxval=255, type=cv2.THRESH_BINARY)
 
-        frame_mask = cv2.medianBlur(cv2.dilate(threshed_diff, kernel=self.dilation_kernel), 31)
+        frame_mask = cv2.medianBlur(cv2.dilate(threshed_diff, kernel=self.dilation_kernel), 21) #31
 
         if self.show_fgbg_frame:
             cv2.imshow("Foreground Mask", frame_mask)
 
-        self.prev_frame = frame
+        if self.fgbf_model != "MOG2":
+            self.prev_frame = frame
 
         return frame_mask
     
@@ -280,7 +290,8 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                              tracking_insect_classes = config.classes,
                              black_pixel_threshold = config.detector_properties.secondary_verification.black_pixel_threshold)
         
-        FGBG_Detector.__init__(self,        
+        FGBG_Detector.__init__(self,
+                                model = config.detector_properties.fgbg_detection.model,        
                                 min_blob_area = config.min_blob_area,
                                 max_blob_area = config.max_blob_area,
                                 downscale_factor = config.detector_properties.fgbg_detection.downscale_factor,
@@ -299,6 +310,9 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         self.insect_boundary_extension = config.insect_boundary_extension
         self.dl_detector, self.secondary_verification, self.fgbg_detector = self.detectors_in_use(config.detectors)
         self.secondary_verification_confidence = config.detector_properties.secondary_verification.detection_confidence
+        self.clean_fgbg_detections = config.detector_properties.fgbg_detection.clean_detections
+        if self.clean_fgbg_detections:
+            self.prev_fgbg_detection = None
 
         try:
             self.assignment_method = config.assignment_method[0]
@@ -337,6 +351,13 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         
             fg_detections = self.run_fgbg_detector(frame, nframe)
 
+            if self.clean_fgbg_detections:
+
+                if self.prev_fgbg_detection is None:
+                    self.prev_fgbg_detection = fg_detections
+
+                fg_detections = self.clean_detections(self.prev_fgbg_detection, fg_detections)
+                
             dl_detections = None
 
             if len(fg_detections) > 0:
@@ -353,6 +374,9 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 f"FG missing insects: {fgbg_missing_insects}, "
                 f"FG unassociated detections: {fgbg_unassociated_detections}"
             )
+
+            if self.clean_fgbg_detections and len(fg_detections)>0:
+                self.prev_fgbg_detection = fg_detections
 
         else:
             fgbg_associated_detections, fgbg_unassociated_detections, fg_detections = [], [], []
@@ -399,6 +423,29 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
 
         return (fgbg_associated_detections, dl_associated_detections, dl_missing_insects, new_insects)
+    
+
+    def clean_detections(self, prev_detections, current_detections):
+        """
+        Cleans `current_detections` by removing any detections close to `prev_detections`
+        based on their x and y positions.
+
+        Parameters:
+            prev_detections (list of lists): List of previous detections [[x, y, a], ...].
+            current_detections (list of lists): List of current detections [[x, y, a], ...].
+
+        Returns:
+            list of lists: Cleaned `current_detections`.
+        """
+        # Use a set for fast lookup of (x, y) positions
+        prev_positions = {(x, y) for x, y, _ in prev_detections}
+
+        # Filter current detections
+        cleaned_detections = [det for det in current_detections if (det[0], det[1]) not in prev_positions]
+
+        return cleaned_detections
+
+
 
         
 
