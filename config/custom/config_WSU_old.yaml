@@ -1,0 +1,104 @@
+# Directories for Input and Output Data
+directories:
+  source: "/Users/mrat0010/Documents/GitHub/WSU/Input/Output2/sun_condition.mp4"    # Path to the directory containing input videos.
+  output: "/Users/mrat0010/Documents/GitHub/WSU/Output/"   # Path to save the processed output videos.
+
+# Configuration for Input Video Properties
+source:
+  resolution:                          # Resolution of the input video in pixels as [width, height].
+    - 1440                             # Width of the input video in pixels.
+    - 1080                             # Height of the input video in pixels.
+  framerate: 50                        # Frame rate of the input video (frames per second).
+  compressed_video: False              # Indicates if the input video is compressed.
+  compression_info: ""                 # Filepath to the additional information document on compression.
+  skip_frames: True                   # Skip and only process odd frames. To be used with deinterlaced videos if applicable. 
+
+# Configuration for Output Video Properties
+output:
+  resolution:                          # Resolution of the output video in pixels as [width, height].
+    - 1920                             # Width of the output video in pixels.
+    - 1080                              # Height of the output video in pixels.
+  codec: "DIVX"                        # Codec used for compressing the output video.
+  show: True                           # Whether to display the video output during processing.
+  save: True                           # Whether to save the processed video output to a file.
+
+# Insect Tracking Configuration
+insect_tracking:
+  labels: 
+    - "bee"                       # Human-readable labels for tracked insect classes.
+
+  classes:                             # Class IDs corresponding to tracked insect classes.
+    - 0
+
+  prediction_method:                   # Algorithm for predicting insect movement. Comment out the lines not in use.
+    - "ConstantVelocity"               # Constant velocity model.
+    # - "KalmanFilter"                   # Kalman Filter
+    # - "ExtendedKalmanFilter"           # Extended Kalman Filter
+
+  assignment_method:                   # Algorithm for assigning insect detections to tracks. Comment out the lines not in use.
+    # - "HungarianMethod"                # Linear Sum Assignment or Hungarian Method
+    - "ABP"                            # Association by Proximity
+
+  detectors:                           # List of insect detection methods used.
+    # - dl_detection                     # Primary AI-based detection model.
+    - fgbg_detection                   # Foreground-based blob detection.
+    # - secondary_verification           # Secondary AI-based detection model for additional validation of new insect detections.
+
+  detection_interval: 30              # Number of frames between re-evaluating insect positions.
+  min_blob_area: 2                     # Minimum area (in pixels) for detected insect blobs.
+  max_blob_area: 5000                  # Maximum area (in pixels) for detected insect blobs.
+  insect_boundary_extension: 2.5       # Scale factor to extend the boundary around detected insects.
+  iou_threshold: 0                     # IoU threshold for validating insect detections.
+  max_occlusions: 300                  # Maximum frames an insect can remain occluded and still be tracked.
+  max_edge_occlusions: 32              # Maximum occlusion frames near the edge of the frame.
+  max_occlusions_on_flower: 300        # Maximum frames a flower can remain occluded.
+  edge_pixels: 40                      # Number of pixels near the frame edges considered as border cases.
+  jump_distance:                       # Maximum distance (in pixels) insects can move between frames.
+    - 300                              # Maximum horizontal jump distance allowed with AI detection.
+    - 500                              # Maximum vertical jump distance allowed with foreground detection. Default: 35
+  min_track_length: 20                 # Minimum number of frames an insect must be tracked to be considered valid.
+
+  # Detector-Specific Properties
+  detector_properties:
+    dl_detection:
+      model: "./data/yolov8_models/blueberry_bee.pt"  # Path to the primary detection model.
+      detection_confidence: 0.2                       # Minimum confidence score for valid detections.
+      iou_threshold: 0                                # IoU threshold for validation.
+
+    secondary_verification:
+      model:  "./data/yolov8_models/blueberry_bee.pt" # Path to the secondary detection model.
+      detection_confidence:                           # Minimum confidence scores for validating insect classes.
+        - 0.2                                         # Confidence score for primary class (honeybees).
+      black_pixel_threshold: 0.5                      # Threshold for black pixel density in detected regions.
+
+    fgbg_detection:
+      model: 
+        # - 'FrameDifference'                             # Calculate the difference between consecutive frames.
+        - 'MOG2'                                         # Gaussian Mixture-based Background/Foreground Segmentation.
+      downscale_factor: 1                             # Scaling factor for downsampling frames during preprocessing.
+      dilate_kernel_size: 6                           # Kernel size for dilation operation during blob detection. (Default: 8)
+      movement_threshold: 40                          # Intensity threshold for detecting motion. (Default: 120)
+      show: False                                     # Display the output of the foreground detection model.
+      clean_detections: True                          # Compare detections made in adjacent frames to remove duplicates.
+
+# Flower Tracking Configuration
+flower_tracking:
+  track: False                                        # Enable/disable flower tracking.
+  labels: 
+    - "flower"                                        # Human-readable labels for tracked flower classes.
+  classes:                                            # Class IDs corresponding to flower classes.
+    - 0
+  detection_interval: 300                             # Number of frames between flower detection updates.
+  border_extension: 1.75                              # Scale factor to extend boundaries for detected flowers.
+  prediction_method: "ConstantVelocity"               # Algorithm for predicting flower movement.
+
+  # Detector Properties for Flower Tracking
+  detector_properties:
+    model: "/path/to/blueberry_flower.pt"             # Path to the flower detection model.
+    detection_confidence: 0.1                         # Minimum confidence score for valid detections.
+    iou_threshold: 0.5                                # IoU threshold for flower detection validation.
+
+
+# Notes:
+# This requires deinterlacing the video before processing. using the following command:
+# ffmpeg -i "$file" -vf "yadif=mode=1" -c:v libx264 -preset slow -crf 19 -c:a aac -b:a 256k "$output_file"

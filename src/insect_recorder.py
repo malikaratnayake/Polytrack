@@ -156,21 +156,22 @@ class Recorder(VideoWriter):
                             output_directory = directory_config.output,
                             show_video_output = output_config.show,
                             save_video_output = output_config.save,
-                            edge_pixels = insect_config.edge_pixels,
+                            edge_pixels = insect_config.edge_analysis.edge_pixels,
                             video_codec = output_config.codec) 
         
         self.insect_tracks = []
-        self.edge_pixels = insect_config.edge_pixels
+        self.edge_pixels = insect_config.edge_analysis.edge_pixels
         self.width, self.height, self.fps = source_config.resolution[0], source_config.resolution[1], source_config.framerate
         self.max_occlusions = insect_config.max_occlusions
-        self.max_occlusions_edge = insect_config.max_edge_occlusions
+        self.max_occlusions_edge = insect_config.edge_analysis.max_edge_occlusions
         self.max_occlusions_on_flower = insect_config.max_occlusions_on_flower
         self.tracking_insects = insect_config.labels
         self.min_track_length = insect_config.min_track_length
-        self.compressed_time_jump = source_config.compressed_video_time_jump
+        self.compressed_time_jump = insect_config.edge_analysis.compressed_video_time_jump
         self.insect_count = 0
         self.last_recorded_frame_number = 0
         self.compressed_video = source_config.compressed_video
+        self.continious_edge_analysis = insect_config.edge_analysis.continious_analysis
         self.video_frame_width, self.video_frame_height = output_config.resolution[0], output_config.resolution[1]
 
 
@@ -226,11 +227,9 @@ class Recorder(VideoWriter):
             _y = int((detection[2]))
             _flower = None
 
-            if self.compressed_video is True and self.check_time_jump(mapped_frame_num) is True and self.detected_on_edge(_x, _y) is True:
-                insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
-                self.save_track(insect_position)
-                print('Edge')
-                break
+            if self.compressed_video is True and self.continious_edge_analysis is True:
+                if self.check_compressed_video_jump(mapped_frame_num, _insect_num) is True:
+                    break
 
             recorded_info.append([_insect_num, _x, _y,])
             insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
@@ -240,6 +239,27 @@ class Recorder(VideoWriter):
 
         return None
     
+
+    
+    def check_compressed_video_jump(self,
+                                     mapped_frame_num: int,
+                                     insect_num: int) -> bool:
+        
+        if self.check_time_jump(mapped_frame_num):
+            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == insect_num), None))
+            insect_detections = self.insect_tracks[insect_position][3]
+            last_detected_frame_position = self.find_last_detected_frame(insect_detections)
+            _, last_x, last_y, _ = insect_detections[last_detected_frame_position]
+
+            if self.detected_on_edge(last_x, last_y) is True:
+                self.save_track(insect_position)
+                LOGGER.info(f'Insect {insect_num} was detected on the edge. Insect track saved')
+                return True
+            else:
+                return False
+        else:
+            return False
+     
 
     def record_DL_detections(self, 
                              mapped_frame_num: int, 
@@ -253,12 +273,9 @@ class Recorder(VideoWriter):
             _y = int((detection[2]))
             _flower = None
 
-            if self.compressed_video is True and self.check_time_jump(mapped_frame_num) is True and self.detected_on_edge(_x, _y) is True:
-                insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
-                self.save_track(insect_position)
-                print('Edge')
-                break
-
+            if self.compressed_video is True and self.continious_edge_analysis is True:
+                if self.check_compressed_video_jump(mapped_frame_num, _insect_num) is True:
+                    break
 
             recorded_info.append([_insect_num, _x, _y,])
             insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
