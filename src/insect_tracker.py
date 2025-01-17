@@ -16,6 +16,7 @@ class DL_Detector():
                 model_insects_large: str,
                 insect_iou_threshold: float,
                 dl_detection_confidence: float,
+                dl_image_size: list,
                 tracking_insect_classes: list,
                 black_pixel_threshold: float) -> None:
         
@@ -25,6 +26,7 @@ class DL_Detector():
         self.dl_detection_confidence =dl_detection_confidence
         self.model_insects_large = YOLO(model_insects_large)
         self.black_pixel_threshold = black_pixel_threshold
+        self.dl_image_size = dl_image_size
 
         return None
     
@@ -65,14 +67,14 @@ class DL_Detector():
 
     def run_dl_detector(self, 
                         frame: np.ndarray) -> np.ndarray:
-        
 
+        
         results = self.insect_detector.predict(source=frame, 
                                                 conf=self.dl_detection_confidence, 
                                                 show=False, 
                                                 verbose = False, 
                                                 save = False,
-                                                imgsz = (864,480),
+                                                imgsz = (self.dl_image_size[1], self.dl_image_size[0]),
                                                 iou = self.insect_iou_threshold, 
                                                 classes = self.tracking_insect_classes)
         
@@ -84,7 +86,8 @@ class DL_Detector():
     def DL_verify_new_insects(self,
                             frame: np.ndarray,
                             potential_new_insects: np.ndarray,
-                            secondary_verification_confidence: list) -> list:
+                            secondary_verification_confidence: list,
+                            image_size: list) -> list:
         
         low_confidence = []
 
@@ -129,7 +132,14 @@ class DL_Detector():
 
                 confidence = secondary_verification_confidence[insect_type]
 
-                new_insect_results = self.model_insects_large.predict(source=crop, conf=confidence, show=False, verbose = False, iou = 0, classes = [insect_type], augment =True, imgsz = (640,640))
+
+                new_insect_results = self.model_insects_large.predict(source=crop, 
+                                                                      conf=confidence, 
+                                                                      show=False, 
+                                                                      verbose = False, 
+                                                                      classes = [insect_type], 
+                                                                      augment =True, 
+                                                                      imgsz = (image_size[1],image_size[0]))
 
                 new_insect_detections = self._decode_DL_results(new_insect_results)
 
@@ -287,6 +297,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                              model_insects_large = config.detector_properties.secondary_verification.model,
                              insect_iou_threshold = config.detector_properties.dl_detection.iou_threshold,
                              dl_detection_confidence = config.detector_properties.dl_detection.detection_confidence,
+                             dl_image_size = config.detector_properties.dl_detection.image_size,
                              tracking_insect_classes = config.classes,
                              black_pixel_threshold = config.detector_properties.secondary_verification.black_pixel_threshold)
         
@@ -310,6 +321,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         self.insect_boundary_extension = config.insect_boundary_extension
         self.dl_detector, self.secondary_verification, self.fgbg_detector = self.detectors_in_use(config.detectors)
         self.secondary_verification_confidence = config.detector_properties.secondary_verification.detection_confidence
+        self.secondary_verification_imgsz = config.detector_properties.secondary_verification.image_size
         self.clean_fgbg_detections = config.detector_properties.fgbg_detection.clean_detections
         if self.clean_fgbg_detections:
             self.prev_fgbg_detection = None
@@ -464,7 +476,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         potential_new_insects = self.remove_associated_detections(potential_new_insects, fgbg_associated_detections)
 
         if self.secondary_verification:
-            new_insects = self.DL_verify_new_insects(frame, potential_new_insects, self.secondary_verification_confidence)
+            new_insects = self.DL_verify_new_insects(frame, potential_new_insects, self.secondary_verification_confidence, self.secondary_verification_imgsz)
         else:
             new_insects = potential_new_insects
 
