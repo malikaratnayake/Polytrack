@@ -22,6 +22,7 @@ output:
   codec: "DIVX"                        # Codec used for compressing the output video.
   show: False                           # Whether to display the video output during processing.
   save: True                           # Whether to save the processed video output to a file.
+  compressed_time_as_filename: False   # Use the time in the compressed video as filenames for insect detections..
 
 # Insect Tracking Configuration
 insect_tracking:

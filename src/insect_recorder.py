@@ -148,10 +148,6 @@ class Recorder(VideoWriter):
                  framerate: int,
                  directory_config: dict) -> None:
         
-    
-    
-
-        
         VideoWriter.__init__(self,
                             input_video_dimensions = video_resolution,
                             output_video_dimensions = output_config.resolution,
@@ -179,7 +175,7 @@ class Recorder(VideoWriter):
         self.compressed_video = source_config.compressed_video
         self.continious_edge_analysis = insect_config.edge_analysis.continious_analysis
         self.video_frame_width, self.video_frame_height = output_config.resolution[0], output_config.resolution[1]
-
+        self.compressed_time_as_filename = output_config.compressed_time_as_filename
 
         return None
 
@@ -368,7 +364,10 @@ class Recorder(VideoWriter):
             # _confidence = float(detection[4])
             # _status = 'In'
             # _model = 'DL'
-            _insect_num = self.generate_insect_num(nframe, _species)
+            if self.compressed_video is True and self.compressed_time_as_filename is True:
+                _insect_num = self.generate_insect_num(mapped_frame_num, _species)
+            else:
+                _insect_num = self.generate_insect_num(nframe, _species)
             # _flower = np.nan
             recorded_info.append([_insect_num, _species ,_x, _y,])
 
