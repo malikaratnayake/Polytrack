@@ -153,7 +153,7 @@ class DL_Detector():
                 if len(new_insect_detections) == 0:
                     low_confidence.append(dl_detection)
                 else:
-                    LOGGER.info(f"New insect verification: {new_insect_detections}")
+                    LOGGER.debug(f"New insect verification: {new_insect_detections}")
     
         new_insects = np.delete(potential_new_insects, low_confidence, axis=0)
 
