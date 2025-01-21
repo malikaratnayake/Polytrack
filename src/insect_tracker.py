@@ -4,7 +4,6 @@ from ultralytics import YOLO
 import logging
 from tracking_methods import TrackingMethods
 import math
-import itertools
 
 LOGGER = logging.getLogger()
 
@@ -125,8 +124,8 @@ class DL_Detector():
 
                 x0 = max(0, int(mid_x - 160))
                 y0 = max(0, int(mid_y - 160))
-                x1 = min(int(mid_x + 160), 1920)
-                y1 = min(int(mid_y + 160), 1080)
+                x1 = min(int(mid_x + 160), frame_width)
+                y1 = min(int(mid_y + 160), frame_height)
 
                 croped_frame = frame[y0:y1, x0:x1] 
 
@@ -323,35 +322,38 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                  directory_config: dict) -> None:
 
         
+        self.dl_detector, self.secondary_verification, self.fgbg_detector = self.detectors_in_use(config.detectors)
         
-        DL_Detector.__init__(self,
-                             insect_detector = config.detector_properties.dl_detection.model,
-                             model_insects_large = config.detector_properties.secondary_verification.model,
-                             insect_iou_threshold = config.detector_properties.dl_detection.iou_threshold,
-                             dl_detection_confidence = config.detector_properties.dl_detection.detection_confidence,
-                             dl_image_size = config.detector_properties.dl_detection.image_size,
-                             tracking_insect_classes = config.classes,
-                             black_pixel_threshold = config.detector_properties.secondary_verification.black_pixel_threshold)
+        if self.dl_detector is True or self.secondary_verification is True:
+            DL_Detector.__init__(self,
+                                insect_detector = config.detector_properties.dl_detection.model,
+                                model_insects_large = config.detector_properties.secondary_verification.model,
+                                insect_iou_threshold = config.detector_properties.dl_detection.iou_threshold,
+                                dl_detection_confidence = config.detector_properties.dl_detection.detection_confidence,
+                                dl_image_size = config.detector_properties.dl_detection.image_size,
+                                tracking_insect_classes = config.classes,
+                                black_pixel_threshold = config.detector_properties.secondary_verification.black_pixel_threshold)
         
-        FGBG_Detector.__init__(self,
-                                model = config.detector_properties.fgbg_detection.model,        
-                                min_blob_area = config.min_blob_area,
-                                max_blob_area = config.max_blob_area,
-                                downscale_factor = config.detector_properties.fgbg_detection.downscale_factor,
-                                dilate_kernel_size = config.detector_properties.fgbg_detection.dilate_kernel_size,
-                                movement_threshold = config.detector_properties.fgbg_detection.movement_threshold,
-                                compressed_video = source_config.compressed_video,
-                                video_filepath = directory_config.source,
-                                info_filename = source_config.compression_info,
-                                prediction_method = config.prediction_method,
-                                show_fgbg_frame = config.detector_properties.fgbg_detection.show)
+        if self.fgbg_detector is True:
+            FGBG_Detector.__init__(self,
+                                    model = config.detector_properties.fgbg_detection.model,        
+                                    min_blob_area = config.min_blob_area,
+                                    max_blob_area = config.max_blob_area,
+                                    downscale_factor = config.detector_properties.fgbg_detection.downscale_factor,
+                                    dilate_kernel_size = config.detector_properties.fgbg_detection.dilate_kernel_size,
+                                    movement_threshold = config.detector_properties.fgbg_detection.movement_threshold,
+                                    compressed_video = source_config.compressed_video,
+                                    video_filepath = directory_config.source,
+                                    info_filename = source_config.compression_info,
+                                    prediction_method = config.prediction_method,
+                                    show_fgbg_frame = config.detector_properties.fgbg_detection.show)
 
         self.predictions = []
         self.max_interframe_travel = config.jump_distance
         self.compressed_video = source_config.compressed_video
         self.iou_threshold = config.iou_threshold
         self.insect_boundary_extension = config.insect_boundary_extension
-        self.dl_detector, self.secondary_verification, self.fgbg_detector = self.detectors_in_use(config.detectors)
+       
         self.secondary_verification_confidence = config.detector_properties.secondary_verification.detection_confidence
         self.secondary_verification_imgsz = config.detector_properties.secondary_verification.image_size
         self.clean_fgbg_detections = config.detector_properties.fgbg_detection.clean_detections
@@ -387,8 +389,6 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                     predictions: np.ndarray) -> np.ndarray:
                 
         
-        LOGGER.debug(f"------------------- Processing frame: {nframe} -------------------")
-
         self.predictions = predictions
 
         if self.fgbg_detector is True:
@@ -416,8 +416,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 f"FG detections: {fg_detections}, "
                 f"FG associated detections: {fgbg_associated_detections}, "
                 f"FG missing insects: {fgbg_missing_insects}, "
-                f"FG unassociated detections: {fgbg_unassociated_detections}"
-            )
+                f"FG unassociated detections: {fgbg_unassociated_detections}")
 
             if self.clean_fgbg_detections and len(fg_detections)>0:
                 self.prev_fgbg_detection = fg_detections

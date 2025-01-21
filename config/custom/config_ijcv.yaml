@@ -5,10 +5,6 @@ directories:
 
 # Configuration for Input Video Properties
 source:
-  resolution:                          # Resolution of the input video in pixels as [width, height].
-    - 1920                             # Width of the input video in pixels.
-    - 1080                             # Height of the input video in pixels.
-  framerate: 30                        # Frame rate of the input video (frames per second).
   compressed_video: True              # Indicates if the input video is compressed.
   compression_info: ""                 # Filepath to the additional information document on compression.
   skip_frames: False                   # Skip and only process odd frames. To be used with deinterlaced videos if applicable. 

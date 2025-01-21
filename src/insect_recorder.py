@@ -144,14 +144,19 @@ class Recorder(VideoWriter):
                  output_config: dict,
                  insect_config: dict,
                  source_config: dict,
+                 video_resolution: list[int],
+                 framerate: int,
                  directory_config: dict) -> None:
+        
+    
+    
 
         
         VideoWriter.__init__(self,
-                            input_video_dimensions = source_config.resolution,
+                            input_video_dimensions = video_resolution,
                             output_video_dimensions = output_config.resolution,
                             video_source = directory_config.source,
-                            framerate = source_config.framerate,
+                            framerate = framerate,
                             tracking_insects= insect_config.labels,
                             output_directory = directory_config.output,
                             show_video_output = output_config.show,
@@ -161,7 +166,8 @@ class Recorder(VideoWriter):
         
         self.insect_tracks = []
         self.edge_pixels = insect_config.edge_analysis.edge_pixels
-        self.width, self.height, self.fps = source_config.resolution[0], source_config.resolution[1], source_config.framerate
+        self.width, self.height = video_resolution 
+        self.fps = framerate
         self.max_occlusions = insect_config.max_occlusions
         self.max_occlusions_edge = insect_config.edge_analysis.max_edge_occlusions
         self.max_occlusions_on_flower = insect_config.max_occlusions_on_flower
@@ -175,8 +181,8 @@ class Recorder(VideoWriter):
         self.video_frame_width, self.video_frame_height = output_config.resolution[0], output_config.resolution[1]
 
 
-
         return None
+
     
     def record_track(self,
                      frame: np.ndarray, 
@@ -380,13 +386,30 @@ class Recorder(VideoWriter):
                             nframe: int,
                             species: int) -> int:
         
-        current_time = int(nframe / self.fps)
+        """
+        Encodes the insect number based on recording time, species, and insect count.
+        The number is structured to allow sorting in ascending order based on recording time.
+
+        Args:
+            nframe (int): The frame number of the recording.
+            species (int): The species identifier (0-indexed).
+
+        Returns:
+            int: The encoded insect number.
+        """
+        # Calculate time from frame number
+        current_time = int(nframe / self.fps)  # Time in seconds
         hours = current_time // 3600
         minutes = (current_time % 3600) // 60
         seconds = current_time % 60
-        insect_num = int(int(f"{hours:02d}{minutes:02d}{seconds:02d}") + (species+1)*1000000000 + self.insect_count*1000000)
 
-        return insect_num
+        # Format each component
+        time_str = f"{hours:02d}{minutes:02d}{seconds:02d}"  # HHMMSS
+        species_str = f"{species+1:01d}"  # SS (species)
+        count_str = f"{self.insect_count:05d}"  # CCCC (insect count)
+
+        # Concatenate to form the encoded insect number
+        return int(f"{species_str}{count_str}{time_str}")
   
 
     def manual_verification(self, 
@@ -395,7 +418,7 @@ class Recorder(VideoWriter):
                             coords: list,
                             species: str)-> None:
         
-        _insect_image = frame[max(coords[1]-50,1):min(coords[1]+50,1079), max(coords[0]-50,1):min(coords[0]+50,1919)]
+        _insect_image = frame[max(coords[1]-50,1):min(coords[1]+50,self.height-1), max(coords[0]-50,1):min(coords[0]+50,self.width-1)]
         _filename= str(species)+'_'+str(insect_num)+'_img.png'
         cv2.imwrite(os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(_filename), _insect_image)
         LOGGER.info(f'New {species} was detected. Insect image saved: {_filename}')
@@ -408,7 +431,7 @@ class Recorder(VideoWriter):
                    insect_position: int) -> None:
          
         insect_record = self.insect_tracks[insect_position]
-        insect_num = insect_record[0]
+        insect_num = str(insect_record[0])
         insect_species = insect_record[2]
         insect_track = insect_record[3]
 
@@ -422,7 +445,6 @@ class Recorder(VideoWriter):
                 for record in insect_track:
                     f.write(f"{record[0]},{record[1]},{record[2]},{record[3]}\n")
 
-            # self.plot_insect_track(insect_track, insect_num, insect_species)
 
             LOGGER.info(f'Completed tracking {insect_species}_{insect_num}. Insect track saved: {filename}')
 

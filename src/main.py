@@ -123,6 +123,21 @@ class TracknRecord():
 
         return nframe
 
+def get_video_properties(video_source):
+    cap = cv2.VideoCapture(video_source)
+    if not cap.isOpened():
+        LOGGER.error(f"Error opening video source: {video_source}")
+        return None, None
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    framerate = int(cap.get(cv2.CAP_PROP_FPS))
+    cap.release()
+
+    LOGGER.info(f"Video resolution: {width}x{height}")
+    LOGGER.info(f"Video framerate: {framerate}")
+
+    return (width, height), framerate
 
 
 def main(directory_config: Config):
@@ -174,8 +189,9 @@ def main(directory_config: Config):
 
     # Update the output directory in the config file
     directory_config.output = output_directory
-    
 
+    video_resolution, framerate = get_video_properties(directory_config.source)
+    
     # Create all of our threads
     track_insects = InsectTracker(
         config = INSECT_CONFIG,
@@ -187,6 +203,8 @@ def main(directory_config: Config):
         output_config=OUTPUT_CONFIG,
         insect_config=INSECT_CONFIG,
         source_config=SOURCE_CONFIG,
+        video_resolution = video_resolution,
+        framerate = framerate,
         directory_config=directory_config)
     
     if FLOWER_CONFIG.track:
