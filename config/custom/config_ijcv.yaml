@@ -1,7 +1,7 @@
 # Directories for Input and Output Data
 directories:
   source: "/Users/mrat0010/Documents/IJCV/Input/"    # Path to the directory containing input videos.
-  output: "/Users/mrat0010/Documents/IJCV/Output3/"   # Path to save the processed output videos.
+  output: "/Users/mrat0010/Documents/IJCV/Output/"   # Path to save the processed output videos.
 
 # Configuration for Input Video Properties
 source:
@@ -18,7 +18,7 @@ output:
   codec: "DIVX"                        # Codec used for compressing the output video.
   show: False                           # Whether to display the video output during processing.
   save: True                           # Whether to save the processed video output to a file.
-  compressed_time_as_filename: False   # Use the time in the compressed video as filenames for insect detections..
+  compressed_time_as_filename: False   # Use the time in the compressed video as filenames for insect detections.
 
 # Insect Tracking Configuration
 insect_tracking:
@@ -67,9 +67,9 @@ insect_tracking:
   # Detector-Specific Properties
   detector_properties:
     dl_detection:
-      model: "/Users/mrat0010/Documents/IJCV/Models/20250117/insects_best_s.pt"  # Path to the primary detection model.
+      model: "/Users/mrat0010/Documents/IJCV/Models/20250117/insects_compressed_best_s.pt"  # Path to the primary detection model.
       detection_confidence:                           # Minimum confidence scores for validating insect classes.
-        - 0.3                                         # Confidence score for primary class (honeybees).
+        - 0.5                                         # Confidence score for primary class (honeybees).
         - 0.3                                         # Confidence score for secondary class (hoverflies).
         - 0.3                         # Minimum confidence score for valid detections.
       iou_threshold: 0                                # IoU threshold for validation.
@@ -78,7 +78,7 @@ insect_tracking:
         - 480                                         # Height of the input image in pixels.     
 
     secondary_verification:
-      model:  "/Users/mrat0010/Documents/IJCV/Models/20250117/insects_best_l.pt" # Path to the secondary detection model.
+      model:  "/Users/mrat0010/Documents/IJCV/Models/20250117/insects_compressed_best_l.pt" # Path to the secondary detection model.
       detection_confidence:                           # Minimum confidence scores for validating insect classes.
         - 0.5                                         # Confidence score for primary class (honeybees).
         - 0.3                                         # Confidence score for secondary class (hoverflies).

@@ -364,7 +364,7 @@ class Recorder(VideoWriter):
             # _confidence = float(detection[4])
             # _status = 'In'
             # _model = 'DL'
-            if self.compressed_video is True and self.compressed_time_as_filename is True:
+            if self.compressed_video is True and self.compressed_time_as_filename is False:
                 _insect_num = self.generate_insect_num(mapped_frame_num, _species)
             else:
                 _insect_num = self.generate_insect_num(nframe, _species)
