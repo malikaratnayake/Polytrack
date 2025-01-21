@@ -1,7 +1,7 @@
 # Directories for Input and Output Data
 directories:
-  source: "/Users/mrat0010/Documents/IJCV/Input/cam_1_N_video_20210315_132804.h264.avi"    # Path to the directory containing input videos.
-  output: "/Users/mrat0010/Documents/IJCV/Output1/"   # Path to save the processed output videos.
+  source: "/Users/mrat0010/Documents/IJCV/Input/"    # Path to the directory containing input videos.
+  output: "/Users/mrat0010/Documents/IJCV/Output3/"   # Path to save the processed output videos.
 
 # Configuration for Input Video Properties
 source:
@@ -20,7 +20,7 @@ output:
     - 1280                             # Width of the output video in pixels.
     - 720                              # Height of the output video in pixels.
   codec: "DIVX"                        # Codec used for compressing the output video.
-  show: True                           # Whether to display the video output during processing.
+  show: False                           # Whether to display the video output during processing.
   save: True                           # Whether to save the processed video output to a file.
 
 # Insect Tracking Configuration
@@ -59,7 +59,7 @@ insect_tracking:
   jump_distance:                       # Maximum distance (in pixels) insects can move between frames.
     - 200                              # Maximum horizontal jump distance allowed with AI detection.
     - 35                               # Maximum vertical jump distance allowed with foreground detection. Default: 35
-  min_track_length: 5                  # Minimum number of frames an insect must be tracked to be considered valid.
+  min_track_length: 3                  # Minimum number of frames an insect must be tracked to be considered valid.
   edge_analysis:                # Analysis of insect behavior near the frame edges.
     edge_pixels: 50                    # Number of pixels near the frame edges considered as border cases.
     max_edge_occlusions: 32              # Maximum occlusion frames near the edge of the frame.
@@ -71,7 +71,10 @@ insect_tracking:
   detector_properties:
     dl_detection:
       model: "/Users/mrat0010/Documents/IJCV/Models/20250117/insects_best_s.pt"  # Path to the primary detection model.
-      detection_confidence: 0.5                       # Minimum confidence score for valid detections.
+      detection_confidence:                           # Minimum confidence scores for validating insect classes.
+        - 0.3                                         # Confidence score for primary class (honeybees).
+        - 0.3                                         # Confidence score for secondary class (hoverflies).
+        - 0.3                         # Minimum confidence score for valid detections.
       iou_threshold: 0                                # IoU threshold for validation.
       image_size:                                     # Size of the input image for the primary detection model.
         - 864                                         # Width of the input image in pixels.   
