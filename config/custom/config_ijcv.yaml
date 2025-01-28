@@ -67,7 +67,7 @@ insect_tracking:
   # Detector-Specific Properties
   detector_properties:
     dl_detection:
-      model: "/Users/mrat0010/Documents/IJCV/Models/20250117/insects_compressed_best_s.pt"  # Path to the primary detection model.
+      model: "/Users/mrat0010/Documents/IJCV/Models/insects_compressed_best_yolov11s.pt"  # Path to the primary detection model.
       detection_confidence:                           # Minimum confidence scores for validating insect classes.
         - 0.5                                         # Confidence score for primary class (honeybees).
         - 0.3                                         # Confidence score for secondary class (hoverflies).
@@ -78,7 +78,7 @@ insect_tracking:
         - 480                                         # Height of the input image in pixels.     
 
     secondary_verification:
-      model:  "/Users/mrat0010/Documents/IJCV/Models/20250117/insects_compressed_best_l.pt" # Path to the secondary detection model.
+      model:  "/Users/mrat0010/Documents/IJCV/Models/insects_compressed_best_yolov11l.pt" # Path to the secondary detection model.
       detection_confidence:                           # Minimum confidence scores for validating insect classes.
         - 0.5                                         # Confidence score for primary class (honeybees).
         - 0.3                                         # Confidence score for secondary class (hoverflies).

@@ -440,6 +440,8 @@ class Recorder(VideoWriter):
             output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'.csv'
 
             with open(output_filepath, 'w') as f:
+                if self.compressed_video is True:
+                    insect_track = self.process_and_interpolate_track(insect_track)
                 f.write('nframe, x, y, flower\n')
                 for record in insect_track:
                     f.write(f"{record[0]},{record[1]},{record[2]},{record[3]}\n")
@@ -455,6 +457,100 @@ class Recorder(VideoWriter):
         
 
         return None
+        
+    
+
+    def process_and_interpolate_track(self, 
+                                      data,
+                                      max_none_gap = 3):
+         # Ensure data is sorted by frame
+        data.sort(key=lambda row: row[0])
+
+        # Extract frame numbers
+        frames = [row[0] for row in data]
+        start_frame, end_frame = min(frames), max(frames)
+
+        # Create a dictionary for fast lookup and fill missing frames
+        frame_dict = {row[0]: row[1:] for row in data}
+        interpolated_data = []
+
+        for frame in range(start_frame, end_frame + 1):
+            if frame in frame_dict:
+                interpolated_data.append([frame] + frame_dict[frame])
+            else:
+                interpolated_data.append([frame, None, None, None])
+
+        # Interpolate x and y values
+        for i in range(len(interpolated_data)):
+            if interpolated_data[i][1] is None or interpolated_data[i][2] is None:
+                prev = next((interpolated_data[j] for j in range(i - 1, -1, -1) if interpolated_data[j][1] is not None), None)
+                next_ = next((interpolated_data[j] for j in range(i + 1, len(interpolated_data)) if interpolated_data[j][1] is not None), None)
+
+                if prev and next_:
+                    interpolated_data[i][1] = prev[1] + (next_[1] - prev[1]) * (i - interpolated_data.index(prev)) / (interpolated_data.index(next_) - interpolated_data.index(prev))
+                    interpolated_data[i][2] = prev[2] + (next_[2] - prev[2]) * (i - interpolated_data.index(prev)) / (interpolated_data.index(next_) - interpolated_data.index(prev))
+                elif prev:
+                    interpolated_data[i][1] = prev[1]
+                    interpolated_data[i][2] = prev[2]
+                elif next_:
+                    interpolated_data[i][1] = next_[1]
+                    interpolated_data[i][2] = next_[2]
+
+        # Fill flower values
+        for i in range(len(interpolated_data)):
+            # If the flower value is explicitly None in the original data, keep it as None
+            if interpolated_data[i][0] in frame_dict and frame_dict[interpolated_data[i][0]][2] is None:
+                interpolated_data[i][3] = None
+                continue
+
+            if interpolated_data[i][3] is None:
+                prev_flower_index = next((j for j in range(i - 1, -1, -1) if interpolated_data[j][3] is not None), None)
+                next_flower_index = next((j for j in range(i + 1, len(interpolated_data)) if interpolated_data[j][3] is not None), None)
+
+                if prev_flower_index is not None and next_flower_index is not None:
+                    if interpolated_data[prev_flower_index][3] == interpolated_data[next_flower_index][3]:
+                        interpolated_data[i][3] = interpolated_data[prev_flower_index][3]
+                    else:
+                        interpolated_data[i][3] = None
+                elif prev_flower_index is not None:
+                    interpolated_data[i][3] = interpolated_data[prev_flower_index][3]
+                elif next_flower_index is not None:
+                    interpolated_data[i][3] = None
+
+        # Additional processing: Fill short gaps with preceding flower value
+          # Threshold for filling gaps
+        i = 0
+        while i < len(interpolated_data):
+            if interpolated_data[i][3] is None:
+                # Identify the start and end of the gap
+                gap_start = i
+                while i < len(interpolated_data) and interpolated_data[i][3] is None:
+                    i += 1
+                gap_end = i
+
+                # Check if the gap length is within the threshold and the preceding/succeeding flower values match
+                if gap_end - gap_start <= max_none_gap:
+                    prev_flower_index = next((j for j in range(gap_start - 1, -1, -1) if interpolated_data[j][3] is not None), None)
+                    next_flower_index = next((j for j in range(gap_end, len(interpolated_data)) if interpolated_data[j][3] is not None), None)
+
+                    if prev_flower_index is not None and next_flower_index is not None:
+                        if interpolated_data[prev_flower_index][3] == interpolated_data[next_flower_index][3]:
+                            for k in range(gap_start, gap_end):
+                                interpolated_data[k][3] = interpolated_data[prev_flower_index][3]
+                    elif prev_flower_index is not None:
+                        for k in range(gap_start, gap_end):
+                            interpolated_data[k][3] = interpolated_data[prev_flower_index][3]
+
+            i += 1
+
+        # Convert x, y, and flower to integers where applicable
+        for row in interpolated_data:
+            if row[1] is not None:
+                row[1] = int(round(row[1]))
+            if row[2] is not None:
+                row[2] = int(round(row[2]))
+
+        return interpolated_data
     
     def plot_insect_track(self,
                             insect_track: list,
