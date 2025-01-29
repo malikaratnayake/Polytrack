@@ -81,8 +81,8 @@ insect_tracking:
       model:  "/Users/mrat0010/Documents/IJCV/Models/insects_compressed_best_yolov11l.pt" # Path to the secondary detection model.
       detection_confidence:                           # Minimum confidence scores for validating insect classes.
         - 0.5                                         # Confidence score for primary class (honeybees).
-        - 0.5                                         # Confidence score for secondary class (hoverflies).
-        - 0.5                                         # Confidence score for tertiary class (moths).
+        - 0.3                                         # Confidence score for secondary class (hoverflies).
+        - 0.3                                         # Confidence score for tertiary class (moths).
       black_pixel_threshold: 0.5                      # Threshold for black pixel density in detected regions.
       image_size:                                     # Size of the input image for the secondary detection model.  
         - 640                                         # Width of the input image in pixels.         

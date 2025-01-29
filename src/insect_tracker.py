@@ -533,150 +533,72 @@ class InsectTracker(DL_Detector, FGBG_Detector):
     
         return new_insects
     
-    # def process_detections(self,
-    #                         fg_detections: np.array,
-    #                         dl_detections: np.array,
-    #                         predictions: np.array) -> tuple:
-          
-    #     if dl_detections is not None:
-    #         max_interframe_travel_distance = self.max_interframe_travel[0]
-    #         if len(list(itertools.chain.from_iterable(fg_detections))) > 0:
-    #             fgbg_associated_positions, fgbg_unassociated_detections = fg_detections
-    #             if len(fgbg_associated_positions) > 0:
-    #                 dl_detections_f = self.remove_duplicate_detections(dl_detections, fgbg_associated_positions)
-    #                 fgbg_detections = np.vstack([fgbg_associated_positions, fgbg_unassociated_detections])
-
-    #             else:
-    #                 fgbg_detections = fgbg_unassociated_detections
-    #                 dl_detections_f = dl_detections
-
-    #             filtered_fg_detections = self.remove_duplicate_detections(fgbg_detections, dl_detections)
-    #             detections = np.vstack([dl_detections_f, np.pad(filtered_fg_detections, ((0, 0), (0, 2)), mode='constant')])
-
-    #             LOGGER.debug(f"FGBG detections: {fgbg_detections},"
-    #                          f"Filtered FGBG detections: {filtered_fg_detections},"
-    #                          f"Detections for DL: {dl_detections}")
-    #         else:
-    #             detections = dl_detections
-    #     else:
-    #         max_interframe_travel_distance = self.max_interframe_travel[1]
-    #         detections = fg_detections
-              
-    #     associated_detections = np.zeros(shape=(0,6))
-
-    #     if self.assignment_method == "ABP":
-    #         ass= self.assign_by_proximity(detections=detections,predictions=predictions, cost_threshold = max_interframe_travel_distance)
-    #     else:
-    #         ass= self.hungarian_assignment(detections=detections,predictions=predictions, cost_threshold = max_interframe_travel_distance)
-
-    #     LOGGER.debug(f"Detectons: {detections},"
-    #                  f"Predictions: {predictions},"
-    #                  f"Cost Threshold: {max_interframe_travel_distance},"
-    #                  f"Association Matric: {ass}")
-
-    #     associated_detection_pos = []
-    #     associated_prediction_pos = []
-
-    #     for det_idx, pred_idx in ass:
-    #         _center_x, _center_y, _area, _species, _confidence = self.decode_detections(detections, det_idx)
-    #         associated_detections = np.vstack([associated_detections,(int(predictions[pred_idx][0]),_center_x, _center_y, _area, _species, _confidence)])
-    #         associated_detection_pos.append(det_idx)
-    #         associated_prediction_pos.append(pred_idx)
-
-    #     if len(associated_detection_pos)>0:
-    #         unassociated_detections = np.delete(detections, np.array(associated_detection_pos), axis = 0)
-    #     else:
-    #         unassociated_detections = detections
-
-    #     if len(associated_prediction_pos)>0:
-    #         missed_objects = np.delete(np.array(predictions), np.array(associated_prediction_pos), axis=0)
-    #     else:
-    #         missed_objects = predictions
-
-    #     unassociated_detections =np.array((unassociated_detections))
-    #     missing_detections = [int(i[0]) for i in missed_objects]
-
-    #     if self.dl_detector is True:
-    #         if dl_detections is not None:
-
-    #             unassociated_detections = self.remove_associated_detections(unassociated_detections, associated_detections)
-    #             mask = unassociated_detections[:, 4] == 0
-    #             unassociated_detections = unassociated_detections[~mask]
-
-    #     else:
-    #         unassociated_detections = self.remove_associated_detections(unassociated_detections, associated_detections)  
-        
-    #     return associated_detections, missing_detections, unassociated_detections
+    
     
 
-    def process_detections(self,
-                            fg_detections: np.array,
-                            dl_detections: np.array,
-                            predictions: np.array) -> tuple:
-        
+    def process_detections(self, fg_detections: np.ndarray, dl_detections: np.ndarray, predictions) -> tuple:
+        """
+        Associates detections (FG-BG or DL) with existing predictions and identifies unassociated detections.
 
-        if dl_detections is not None:
-            max_interframe_travel_distance = self.max_interframe_travel[0]
-            detections = dl_detections
-        else:
-            max_interframe_travel_distance = self.max_interframe_travel[1]
-            detections = fg_detections
-        
+        Args:
+            fg_detections (np.ndarray): Foreground-background detections (shape: [N, 3+])
+            dl_detections (np.ndarray): Deep learning detections (shape: [M, 3+])
+            predictions (np.ndarray or list): Existing tracked insect predictions (shape: [P, 3+])
 
-        associated_detections = np.zeros(shape=(0,6))        
+        Returns:
+            tuple: (associated_detections, missing_detections, unassociated_detections)
+        """
 
-        if self.assignment_method == "ABP":
-            ass= self.assign_by_proximity(detections=detections,predictions=predictions, cost_threshold = max_interframe_travel_distance)
-        else:
-            ass= self.hungarian_assignment(detections=detections,predictions=predictions, cost_threshold = max_interframe_travel_distance)
+        # Convert predictions to NumPy array if it's a list
+        predictions = np.array(predictions) if isinstance(predictions, list) else predictions
 
-        associated_detection_pos = []
-        associated_prediction_pos = []
+        # Determine which detection source to use
+        use_dl = dl_detections is not None
+        detections = dl_detections if use_dl else fg_detections
+        max_interframe_travel_distance = self.max_interframe_travel[0] if use_dl else self.max_interframe_travel[1]
 
-        for det_idx, pred_idx in ass:
-            _center_x, _center_y, _area, _species, _confidence = self.decode_detections(detections, det_idx)
-            associated_detections = np.vstack([associated_detections,(int(predictions[pred_idx][0]),_center_x, _center_y, _area, _species, _confidence)])
-            associated_detection_pos.append(det_idx)
-            associated_prediction_pos.append(pred_idx)
+        if len(detections) == 0 or len(predictions) == 0:
+            return np.zeros((0, 6)), predictions[:, 0].tolist() if predictions.size > 0 else [], np.array(detections)  # Ensure NumPy array
 
+        # Assign detections to predictions using specified assignment method
+        assign_func = self.assign_by_proximity if self.assignment_method == "ABP" else self.hungarian_assignment
+        assignments = assign_func(detections=detections, predictions=predictions, cost_threshold=max_interframe_travel_distance)
 
-        # update unassociated detections based on the assigments
-        if len(associated_detection_pos)>0:
-            unassociated_detections = np.delete(detections, np.array(associated_detection_pos), axis = 0)
+        # Extract assigned indices
+        assigned_det_indices, assigned_pred_indices = zip(*assignments) if assignments else ([], [])
 
-        else:
-            unassociated_detections = detections
+        # Convert to NumPy arrays
+        assigned_det_indices = np.array(assigned_det_indices, dtype=int)
+        assigned_pred_indices = np.array(assigned_pred_indices, dtype=int)
 
-        # Update missing insects based on assignments
-        if len(associated_prediction_pos)>0:
-            missed_objects = np.delete(np.array(predictions), np.array(associated_prediction_pos), axis=0)
-        else:
-            missed_objects = predictions
+        # Extract associated detections
+        associated_detections = np.zeros((len(assignments), 6))
+        for i, (det_idx, pred_idx) in enumerate(assignments):
+            x, y, area, species, confidence = self.decode_detections(detections, det_idx)
+            associated_detections[i] = [int(predictions[pred_idx, 0]), x, y, area, species, confidence]
 
-        unassociated_detections =np.array((unassociated_detections))
-        missing_detections = [int(i[0]) for i in missed_objects]
+        # Extract unassociated detections (ensure it's a NumPy array)
+        unassociated_detections = np.array(np.delete(detections, assigned_det_indices, axis=0)) if len(assigned_det_indices) > 0 else np.array(detections)
 
-        LOGGER.debug(f"Associated Detections: {associated_detections}," 
-                     f"Missing Detections: {missing_detections}," 
-                     f"Unassociated Detections: {unassociated_detections}")
+        # Extract missing detections
+        missing_detections = predictions[:, 0][np.setdiff1d(np.arange(len(predictions)), assigned_pred_indices)].tolist() if predictions.size > 0 else []
 
-        if self.dl_detector is True:
+        # Debug Logging (Ensure all logged data is NumPy arrays)
+        LOGGER.debug({
+            "Associated Detections": associated_detections.tolist(),
+            "Missing Detections": missing_detections,
+            "Unassociated Detections": unassociated_detections.tolist() if isinstance(unassociated_detections, np.ndarray) else unassociated_detections
+        })
 
-            if dl_detections is not None:
-
-                unassociated_detections = self.remove_associated_detections(unassociated_detections, associated_detections)
-
-                # Create a mask for detections with confidence less than 0.2
-                mask = unassociated_detections[:, 4] == 0
-
-                # Filter out detections with confidence less than 0.2
-                unassociated_detections = unassociated_detections[~mask]
-
-        else:
+        # Apply filtering for DL-based detections if enabled
+        if self.dl_detector and use_dl:
             unassociated_detections = self.remove_associated_detections(unassociated_detections, associated_detections)
-        
+
+            # Filter out detections with zero confidence
+            unassociated_detections = unassociated_detections[unassociated_detections[:, 4] > 0]
 
         return associated_detections, missing_detections, unassociated_detections
+
 
 
     
@@ -699,96 +621,129 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         return _center_x, _center_y, _area, _species, _confidence
     
 
-    def remove_associated_detections(self, 
-                                    _dl_detections: np.ndarray, 
-                                    _bs_associated_detections: np.ndarray) -> np.ndarray:    
-        _duplicate_detections = []
-        for _bs_detection in _bs_associated_detections:
-            _bs_bounding_box = [_bs_detection[1], _bs_detection[2], _bs_detection[3]]
-            for _dl_detection in np.arange(len(_dl_detections)):
-                _dl_bounding_box = [_dl_detections[_dl_detection][0], _dl_detections[_dl_detection][1], _dl_detections[_dl_detection][2]]
-
-                _iou = self.calculate_iou(_bs_bounding_box, _dl_bounding_box, self.insect_boundary_extension)
-                LOGGER.debug(f"IoU: {_iou}")
-                if _iou > self.iou_threshold:
-                    _duplicate_detections.append(_dl_detection)
-                else:
-                    pass
-        
-        _dl_detections_cleaned = np.delete(_dl_detections, _duplicate_detections, axis=0)
-
-        return _dl_detections_cleaned
-    
-    def remove_duplicate_detections(self, 
-                                    _dl_detections: np.ndarray, 
-                                    _bs_detections: np.ndarray) -> np.ndarray:    
-        _duplicate_detections = []
-        for _bs_detection in _bs_detections:
-            _bs_bounding_box = [_bs_detection[0], _bs_detection[1], _bs_detection[2]]
-            for _dl_detection in np.arange(len(_dl_detections)):
-                _dl_bounding_box = [_dl_detections[_dl_detection][0], _dl_detections[_dl_detection][1], _dl_detections[_dl_detection][2]]
-
-                _iou = self.calculate_iou(_bs_bounding_box, _dl_bounding_box, self.insect_boundary_extension)
-                LOGGER.debug(f"IoU: {_iou}")
-                if _iou > self.iou_threshold:
-                    _duplicate_detections.append(_dl_detection)
-                else:
-                    pass
-        
-        _dl_detections_cleaned = np.delete(_dl_detections, _duplicate_detections, axis=0)
-
-        return _dl_detections_cleaned
-    
-
-    
-
-    def calculate_iou(self, 
-                      bs_bounding_box: np.array, 
-                      dl_bounding_box: np.array,
-                      insect_boundary_extension: float) -> float:
-        """Calculates the intersection over union of two bounding boxes.
+    def remove_associated_detections(self, dl_detections: np.ndarray, bs_associated_detections: np.ndarray) -> np.ndarray:
+        """
+        Removes overlapping DL detections that have high IoU with baseline associated detections.
 
         Args:
-            bbox1: A list of four floats, representing the top-left and bottom-right
-            coordinates of the first bounding box.
-            bbox2: A list of four floats, representing the top-left and bottom-right
-            coordinates of the second bounding box.
+            dl_detections (np.ndarray): DL detections (shape: [N, >=3], containing x, y, area, ...).
+            bs_associated_detections (np.ndarray): BS-associated detections (shape: [M, >=4], containing ID, x, y, area, ...).
 
         Returns:
-            A float, representing the intersection over union of the two bounding boxes.
+            np.ndarray: Filtered DL detections.
         """
-        # Calculate the length of a side using the area
-        x1, y1 = bs_bounding_box[0], bs_bounding_box[1]
-        x2, y2 = dl_bounding_box[0], dl_bounding_box[1]
-        bounding_box_area = max(bs_bounding_box[2], dl_bounding_box[2])
+        if len(dl_detections) == 0 or len(bs_associated_detections) == 0:
+            return dl_detections  # No processing needed if either is empty
 
-        LOGGER.debug(f"Bounding box 1: {bs_bounding_box}")
-        LOGGER.debug(f"Bounding box 2: {dl_bounding_box}")
-        LOGGER.debug(f"Bounding box area: {bounding_box_area}")
+        # Extract only (x, y, area) from BS-associated detections
+        bs_boxes = bs_associated_detections[:, 1:4]  
 
-        # Calculate half-widths and half-heights
-        half_height1 = half_width1 = math.sqrt(bounding_box_area / math.pi)*insect_boundary_extension
-        # half_width2 = np.sqrt(dl_bounding_box[2])/2
-        half_height2 = half_width2 = math.sqrt(bounding_box_area / math.pi)*insect_boundary_extension
+        # Compute IoU for all DL detections against BS-associated detections using broadcasting
+        iou_matrix = np.array([
+            [self.calculate_iou(bs_box[:3], dl_box[:3], self.insect_boundary_extension) for dl_box in dl_detections]
+            for bs_box in bs_boxes
+        ])
 
-        x1_min, y1_min = x1 - half_width1, y1 - half_height1
-        x1_max, y1_max = x1 + half_width1, y1 + half_height1
-        x2_min, y2_min = x2 - half_width2, y2 - half_height2
-        x2_max, y2_max = x2 + half_width2, y2 + half_height2
+        # Find indices of overlapping detections
+        duplicate_indices = np.unique(np.where(iou_matrix > self.iou_threshold)[1])
 
-        # Calculate intersection area
-        intersection_width = max(0, min(x1_max, x2_max) - max(x1_min, x2_min))
-        intersection_height = max(0, min(y1_max, y2_max) - max(y1_min, y2_min))
-        intersection_area = intersection_width * intersection_height
-        # print("Intersection", intersection_area, intersection_width, intersection_height)
+        # Remove duplicate detections
+        filtered_detections = np.delete(dl_detections, duplicate_indices, axis=0)
 
-        # Calculate union area
-        union_area = (half_height1*2)*(half_height1*2) + (half_height2*2)*(half_height2*2)  - intersection_area
+        # Debugging logs
+        LOGGER.debug({
+            "Total DL Detections": len(dl_detections),
+            "Total BS Associated Detections": len(bs_associated_detections),
+            "Duplicate Indices": duplicate_indices.tolist(),
+            "Remaining Detections": len(filtered_detections)
+        })
 
-        # Calculate IoU
-        iou = intersection_area / union_area if union_area > 0 else 0
+        return filtered_detections
+    
+    def remove_duplicate_detections(self, 
+                                    dl_detections: np.ndarray, 
+                                    bs_detections: np.ndarray) -> np.ndarray:
+        """
+        Removes duplicate detections from the deep learning (DL) detections by comparing them 
+        to the baseline (BS) detections using Intersection over Union (IoU).
 
-        LOGGER.debug(f"Intersection area: {intersection_area}")
+        Args:
+            dl_detections (np.ndarray): Array of detections from deep learning model (shape: [N, 3])
+            bs_detections (np.ndarray): Array of baseline detections (shape: [M, 3])
+
+        Returns:
+            np.ndarray: Filtered DL detections with duplicates removed.
+        """
+        if len(dl_detections) == 0 or len(bs_detections) == 0:
+            return dl_detections  # No duplicates to remove if either list is empty
+
+        # Compute IoU for all DL detections against BS detections using broadcasting
+        iou_matrix = np.array([
+            [self.calculate_iou(bs_box, dl_box, self.insect_boundary_extension) for dl_box in dl_detections]
+            for bs_box in bs_detections
+        ])
+
+        # Get indices of duplicate detections where IoU exceeds the threshold
+        duplicate_indices = np.unique(np.where(iou_matrix > self.iou_threshold)[1])
+
+        # Remove duplicates
+        filtered_detections = np.delete(dl_detections, duplicate_indices, axis=0)
+
+        # Logging for debugging
+        LOGGER.debug({
+            "Total DL Detections": len(dl_detections),
+            "Total BS Detections": len(bs_detections),
+            "Duplicate Indices": duplicate_indices.tolist(),
+            "Remaining Detections": len(filtered_detections)
+        })
+
+        return filtered_detections
+    
+
+    
+
+    def calculate_iou(self, bs_bounding_box: np.ndarray, dl_bounding_box: np.ndarray, insect_boundary_extension: float) -> float:
+        """
+        Computes the Intersection over Union (IoU) between two bounding boxes.
+
+        Args:
+            bs_bounding_box (np.ndarray): [x, y, area] of the baseline detection.
+            dl_bounding_box (np.ndarray): [x, y, area] of the DL detection.
+            insect_boundary_extension (float): Expansion factor for boundary calculations.
+
+        Returns:
+            float: IoU score between the two bounding boxes.
+        """
+        x1, y1, area1 = bs_bounding_box
+        x2, y2, area2, *_ = dl_bounding_box  # Ensure only the first three values are used
+
+        # Compute bounding box radius
+        radius1 = np.sqrt(area1 / np.pi) * insect_boundary_extension
+        radius2 = np.sqrt(area2 / np.pi) * insect_boundary_extension
+
+        # Compute bounding box coordinates
+        x1_min, y1_min, x1_max, y1_max = x1 - radius1, y1 - radius1, x1 + radius1, y1 + radius1
+        x2_min, y2_min, x2_max, y2_max = x2 - radius2, y2 - radius2, x2 + radius2, y2 + radius2
+
+        # Compute intersection
+        inter_w = max(0, min(x1_max, x2_max) - max(x1_min, x2_min))
+        inter_h = max(0, min(y1_max, y2_max) - max(y1_min, y2_min))
+        inter_area = inter_w * inter_h
+
+        # Compute union
+        union_area = (2 * radius1) ** 2 + (2 * radius2) ** 2 - inter_area
+
+        # Compute IoU
+        iou = inter_area / union_area if union_area > 0 else 0
+
+        # Debugging logs
+        LOGGER.debug({
+            "BS Box": bs_bounding_box.tolist(),
+            "DL Box": dl_bounding_box.tolist(),
+            "Intersection Area": inter_area,
+            "Union Area": union_area,
+            "IoU": iou
+        })
 
         return iou
     
