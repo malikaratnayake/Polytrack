@@ -93,7 +93,7 @@ class TracknRecord():
                     
                     mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
                     fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects = self.TrackInsects.run_tracker(frame, nframe, predicted_position)
-                    for_predictions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
+                    for_predictions, current_insect_positions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
                     predicted_position = self.TrackInsects.predict_next(for_predictions)
 
 
@@ -105,7 +105,7 @@ class TracknRecord():
 
 
                     if (len(for_predictions) > 0) and self.RecordFlowers is not None:
-                        insect_flower_visits = self.RecordFlowers.monitor_flower_visits(for_predictions)
+                        insect_flower_visits = self.RecordFlowers.monitor_flower_visits(current_insect_positions)
                         self.RecordFlowers.record_flower_visitations(insect_flower_visits, mapped_frame_num, self.RecordTracks.insect_tracks)
                         
 

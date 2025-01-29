@@ -391,6 +391,8 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         
         self.predictions = predictions
 
+        LOGGER.debug(f"Frame Number: {nframe}------------------------------")
+
         if self.fgbg_detector is True:
         
             fg_detections = self.run_fgbg_detector(frame, nframe)
@@ -442,10 +444,6 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
                 dl_associated_detections, dl_missing_insects, potential_new_insects = self.process_detections(fg_detections, dl_detections, self.predictions)
 
-                if potential_new_insects.any() and (not self.compressed_video or (self.compressed_video and (nframe not in self.full_frame_num))):
-                    new_insects = self.verify_new_insects(frame, potential_new_insects, fgbg_associated_detections, fg_detections)
-                else:
-                    new_insects = []
 
 
                 if len(dl_missing_insects) > 0 and len(fgbg_associated_detections) > 0:
@@ -454,6 +452,8 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                     for pred in np.arange(len(dl_missing_insects)):
                         fg_predictions = np.vstack([fg_predictions,([row for row in self.predictions if dl_missing_insects[pred] == row[0]])])
 
+                    fg_detections = self.remove_associated_detections(fg_detections, dl_associated_detections)
+
                     fgbg_associated_detections, fgbg_missing_insects, _ = self.process_detections(fg_detections, None, fg_predictions)
 
                     dl_missing_insects = fgbg_missing_insects
@@ -461,6 +461,11 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 else:
 
                     fgbg_associated_detections, fgbg_missing_insects = [], []
+
+                if potential_new_insects.any() and (not self.compressed_video or (self.compressed_video and (nframe not in self.full_frame_num))):
+                    new_insects = self.verify_new_insects(frame, potential_new_insects, fgbg_associated_detections, fg_detections)
+                else:
+                    new_insects = []
 
                 LOGGER.debug(f"DL Detection: {dl_detections},"
                              f"DL Associated Detections: {dl_associated_detections},"

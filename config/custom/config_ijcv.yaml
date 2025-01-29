@@ -1,6 +1,6 @@
 # Directories for Input and Output Data
 directories:
-  source: "/Users/mrat0010/Documents/IJCV/Input/"    # Path to the directory containing input videos.
+  source: "/Users/mrat0010/Documents/IJCV/Input/cam_2_S_video_20210308_112402.h264.avi"    # Path to the directory containing input videos.
   output: "/Users/mrat0010/Documents/IJCV/Output/"   # Path to save the processed output videos.
 
 # Configuration for Input Video Properties
@@ -16,7 +16,7 @@ output:
     - 1280                             # Width of the output video in pixels.
     - 720                              # Height of the output video in pixels.
   codec: "DIVX"                        # Codec used for compressing the output video.
-  show: False                           # Whether to display the video output during processing.
+  show: True                           # Whether to display the video output during processing.
   save: True                           # Whether to save the processed video output to a file.
   compressed_time_as_filename: False   # Use the time in the compressed video as filenames for insect detections.
 
@@ -51,7 +51,7 @@ insect_tracking:
   max_blob_area: 5000                  # Maximum area (in pixels) for detected insect blobs.
   insect_boundary_extension: 2.5       # Scale factor to extend the boundary around detected insects.
   iou_threshold: 0                     # IoU threshold for validating insect detections.
-  max_occlusions: 100                  # Maximum frames an insect can remain occluded and still be tracked.
+  max_occlusions: 60                  # Maximum frames an insect can remain occluded and still be tracked.
   max_occlusions_on_flower: 300        # Maximum frames a flower can remain occluded.
   jump_distance:                       # Maximum distance (in pixels) insects can move between frames.
     - 200                              # Maximum horizontal jump distance allowed with AI detection.
@@ -81,8 +81,8 @@ insect_tracking:
       model:  "/Users/mrat0010/Documents/IJCV/Models/insects_compressed_best_yolov11l.pt" # Path to the secondary detection model.
       detection_confidence:                           # Minimum confidence scores for validating insect classes.
         - 0.5                                         # Confidence score for primary class (honeybees).
-        - 0.3                                         # Confidence score for secondary class (hoverflies).
-        - 0.3                                         # Confidence score for tertiary class (moths).
+        - 0.5                                         # Confidence score for secondary class (hoverflies).
+        - 0.5                                         # Confidence score for tertiary class (moths).
       black_pixel_threshold: 0.5                      # Threshold for black pixel density in detected regions.
       image_size:                                     # Size of the input image for the secondary detection model.  
         - 640                                         # Width of the input image in pixels.         
