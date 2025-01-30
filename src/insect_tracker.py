@@ -429,7 +429,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
         if self.dl_detector is True:
 
-            if len(fgbg_missing_insects) >0  or len(fgbg_unassociated_detections)>0 or (len(fg_detections) > len(self.predictions)) or (len(fg_detections) == 0 and self.compressed_video) or self.fgbg_detector is False:
+            if ((len(fgbg_missing_insects) >0  or len(fgbg_unassociated_detections)>0 or (len(fg_detections) > len(self.predictions)) or (len(fg_detections) == 0 and self.compressed_video)) and (self.compressed_video and (nframe not in self.full_frame_num))) or self.fgbg_detector is False:
                 # dl_predictions = np.zeros(shape=(0,3))
                 # for pred in np.arange(len(fgbg_missing_insects)):
                 #     dl_predictions = np.vstack([dl_predictions,([row for row in self.predictions if fgbg_missing_insects[pred] == row[0]])])
@@ -444,7 +444,10 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
                 dl_associated_detections, dl_missing_insects, potential_new_insects = self.process_detections(fg_detections, dl_detections, self.predictions)
 
-
+                if potential_new_insects.any() and (not self.compressed_video or (self.compressed_video and (nframe not in self.full_frame_num))):
+                    new_insects = self.verify_new_insects(frame, potential_new_insects, fgbg_associated_detections)
+                else:
+                    new_insects = []
 
                 if len(dl_missing_insects) > 0 and len(fgbg_associated_detections) > 0:
                     fg_predictions = np.zeros(shape=(0,3))
@@ -462,10 +465,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
                     fgbg_associated_detections, fgbg_missing_insects = [], []
 
-                if potential_new_insects.any() and (not self.compressed_video or (self.compressed_video and (nframe not in self.full_frame_num))):
-                    new_insects = self.verify_new_insects(frame, potential_new_insects, fgbg_associated_detections, fg_detections)
-                else:
-                    new_insects = []
+                
 
                 LOGGER.debug(f"DL Detection: {dl_detections},"
                              f"DL Associated Detections: {dl_associated_detections},"
@@ -475,7 +475,11 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 
 
             else:
-                dl_associated_detections, dl_missing_insects, new_insects = [], [], []
+                dl_associated_detections, new_insects = [], []
+                if len(fgbg_missing_insects)>0:
+                    dl_missing_insects = fgbg_missing_insects
+                else:
+                    dl_missing_insects = []
 
         else:
             dl_associated_detections = []
@@ -513,14 +517,11 @@ class InsectTracker(DL_Detector, FGBG_Detector):
     def verify_new_insects(self,
                             frame: np.ndarray,
                             potential_new_insects: np.ndarray,
-                            fgbg_associated_detections: np.ndarray,
-                            fg_detections: np.ndarray) -> list:
+                            fgbg_associated_detections: np.ndarray) -> list:
           
         if fgbg_associated_detections is None:
             fgbg_associated_detections = []
 
-        if fg_detections is None:
-            fg_detections = []
 
         potential_new_insects = self.remove_associated_detections(potential_new_insects, fgbg_associated_detections)
 
@@ -528,8 +529,6 @@ class InsectTracker(DL_Detector, FGBG_Detector):
             new_insects = self.DL_verify_new_insects(frame, potential_new_insects, self.secondary_verification_confidence, self.secondary_verification_imgsz)
         else:
             new_insects = potential_new_insects
-
-        # new_insects = potential_new_insects
     
         return new_insects
     
@@ -746,4 +745,3 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         })
 
         return iou
-    

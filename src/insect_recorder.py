@@ -468,14 +468,14 @@ class Recorder(VideoWriter):
                 for record in insect_track:
                     f.write(f"{record[0]},{record[1]},{record[2]},{record[3]}\n")
 
-            # if self.compressed_video is True:
-            #     interpolated_output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'-post_processed.csv'
+            if self.compressed_video is True:
+                interpolated_output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'-post_processed.csv'
 
-            #     with open(interpolated_output_filepath, 'w') as f:
-            #         insect_track = self.process_and_interpolate_track(insect_track)
-            #         f.write('nframe, x, y, flower\n')
-            #         for record in insect_track:
-            #             f.write(f"{record[0]},{record[1]},{record[2]},{record[3]}\n")
+                with open(interpolated_output_filepath, 'w') as f:
+                    insect_track = self.process_and_interpolate_track(insect_track)
+                    f.write('nframe, x, y, flower\n')
+                    for record in insect_track:
+                        f.write(f"{record[0]},{record[1]},{record[2]},{record[3]}\n")
 
             
 
@@ -517,11 +517,11 @@ class Recorder(VideoWriter):
             else:
                 interpolated_data.append([frame, None, None, None])
 
-        # Interpolate x and y values
+        # Interpolate x and y values only for missing frames (not explicitly None in original data)
         for i in range(len(interpolated_data)):
-            if interpolated_data[i][1] is None or interpolated_data[i][2] is None:
-                prev = next((interpolated_data[j] for j in range(i - 1, -1, -1) if interpolated_data[j][1] is not None), None)
-                next_ = next((interpolated_data[j] for j in range(i + 1, len(interpolated_data)) if interpolated_data[j][1] is not None), None)
+            if interpolated_data[i][0] not in frame_dict:  # Missing frame, interpolate x and y
+                prev = next((interpolated_data[j] for j in range(i - 1, -1, -1) if interpolated_data[j][1] is not None and interpolated_data[j][0] in frame_dict), None)
+                next_ = next((interpolated_data[j] for j in range(i + 1, len(interpolated_data)) if interpolated_data[j][1] is not None and interpolated_data[j][0] in frame_dict), None)
 
                 if prev and next_:
                     interpolated_data[i][1] = prev[1] + (next_[1] - prev[1]) * (i - interpolated_data.index(prev)) / (interpolated_data.index(next_) - interpolated_data.index(prev))
@@ -532,6 +532,7 @@ class Recorder(VideoWriter):
                 elif next_:
                     interpolated_data[i][1] = next_[1]
                     interpolated_data[i][2] = next_[2]
+
 
         # Fill flower values
         for i in range(len(interpolated_data)):
