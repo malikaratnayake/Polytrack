@@ -429,11 +429,17 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
         if self.dl_detector is True:
 
-            if ((len(fgbg_missing_insects) >0  or len(fgbg_unassociated_detections)>0 or (len(fg_detections) > len(self.predictions)) or (len(fg_detections) == 0 and self.compressed_video)) and (self.compressed_video and (nframe not in self.full_frame_num))) or self.fgbg_detector is False:
+            # if ((len(fgbg_missing_insects) >0  or len(fgbg_unassociated_detections)>0 or (len(fg_detections) > len(self.predictions)) or (len(fg_detections) == 0 and self.compressed_video)) and ((self.compressed_video and (nframe not in self.full_frame_num)) or (not self.compressed_video))) or self.fgbg_detector is False:
                 # dl_predictions = np.zeros(shape=(0,3))
                 # for pred in np.arange(len(fgbg_missing_insects)):
                 #     dl_predictions = np.vstack([dl_predictions,([row for row in self.predictions if fgbg_missing_insects[pred] == row[0]])])
+            if (len(fgbg_missing_insects) > 0  
+                or len(fgbg_unassociated_detections) > 0  
+                or len(fg_detections) > len(self.predictions)  
+                or (len(fg_detections) == 0 and self.compressed_video)  
+                or self.fgbg_detector is False):    
 
+                
                 dl_detections = self.run_dl_detector(frame)
 
                 # if len(fgbg_associated_detections) > 0: 
@@ -745,3 +751,6 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         })
 
         return iou
+
+
+

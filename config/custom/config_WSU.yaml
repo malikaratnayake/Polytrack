@@ -1,6 +1,6 @@
 # Directories for Input and Output Data
 directories:
-  source: "/Users/mrat0010/Documents/GitHub/WSU/Input/Output2/"    # Path to the directory containing input videos.
+  source: "/Users/mrat0010/Documents/GitHub/WSU/Input/SHA_02_MONO.mp4"    # Path to the directory containing input videos.
   output: "/Users/mrat0010/Documents/GitHub/WSU/Output2/"   # Path to save the processed output videos.
 
 # Configuration for Input Video Properties
@@ -20,7 +20,7 @@ output:
     - 1920                             # Width of the output video in pixels.
     - 1080                              # Height of the output video in pixels.
   codec: "DIVX"                        # Codec used for compressing the output video.
-  show: False                           # Whether to display the video output during processing.
+  show: True                           # Whether to display the video output during processing.
   save: True                           # Whether to save the processed video output to a file.
   compressed_time_as_filename: False   # Use the time in the compressed video as filenames for insect detections..
 
@@ -68,7 +68,8 @@ insect_tracking:
   detector_properties:
     dl_detection:
       model: "/Users/mrat0010/Documents/GitHub/WSU/Models/WSU_bees.pt"  # Path to the primary detection model.
-      detection_confidence: 0.5                       # Minimum confidence score for valid detections.
+      detection_confidence:                           # Minimum confidence score for valid detections.
+        - 0.2                                         # Confidence score for primary class (honeybees).
       iou_threshold: 0                                # IoU threshold for validation.
       image_size:                                     # Size of the input image for the primary detection model.
         - 1440                                         # Width of the input image in pixels.   

@@ -1,7 +1,7 @@
 # Directories for Input and Output Data
 directories:
-  source: "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/USA_Colab/Input/IMG_0700.MOV"    # Path to the directory containing input videos.
-  output: "/Users/mrat0010/Documents/GitHub/Polytrack_WIP/data/USA_Colab/Output/"   # Path to save the processed output videos.
+  source: "/Users/mrat0010/Documents/USA_Colab/Input/IMG_1122.MOV"    # Path to the directory containing input videos.
+  output: "/Users/mrat0010/Documents/USA_Colab/Output/"   # Path to save the processed output videos.
 
 # Configuration for Input Video Properties
 source:
@@ -29,8 +29,8 @@ insect_tracking:
     - 0
 
   prediction_method:                   # Algorithm for predicting insect movement. Comment out the lines not in use.
-    - "ConstantVelocity"               # Constant velocity model.
-    # - "KalmanFilter"                   # Kalman Filter
+    # - "ConstantVelocity"               # Constant velocity model.
+    - "KalmanFilter"                   # Kalman Filter
     # - "ExtendedKalmanFilter"           # Extended Kalman Filter
 
   assignment_method:                   # Algorithm for assigning insect detections to tracks. Comment out the lines not in use.
