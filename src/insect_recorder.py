@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 
 LOGGER = logging.getLogger()
 
+# EXCLUDE_BOX = [1950, 750, 2400, 1150]  # Exclude box for insect detection
+# INCLUDE_BOX = [500, 500, 2500, 2500]  # Include box for insect detection
+
 class VideoWriter:
 
     def __init__(self,
@@ -19,7 +22,8 @@ class VideoWriter:
                  save_video_output: bool,
                  tracking_insects: list,
                  edge_pixels: int,
-                 video_codec: str) -> None:
+                 video_codec: str,
+                 spatial_filtering) -> None:
         
         self.width, self.height, self.fps = input_video_dimensions[0], input_video_dimensions[1], framerate
         self.show_video_output = show_video_output 
@@ -30,11 +34,17 @@ class VideoWriter:
         self.output_video_dimensions = output_video_dimensions
         self.tracking_insects = tracking_insects
         self.edge_pixels = edge_pixels
+        self.spatial_filtering = spatial_filtering
         self.latest_flower_positions = []
 
         if self.save_video_output or self.show_video_output:
             self.trajectory_frame = np.zeros((input_video_dimensions[1],input_video_dimensions[0],3), np.uint8)
             self.trajectory_frame = self.mark_boundary_edges(self.trajectory_frame, self.edge_pixels)
+            if self.spatial_filtering.use_exclude_zone:
+                self.trajectory_frame = self.mark_excluded_zone(self.trajectory_frame, self.spatial_filtering.exclude_zone_coord)
+            if self.spatial_filtering.use_include_zone:
+                self.trajectory_frame = self.mark_included_zone(self.trajectory_frame, self.spatial_filtering.include_zone_coord)
+        
             self.output_video = self.setup_video_recording(output_directory, video_codec)
         
         return None
@@ -46,6 +56,57 @@ class VideoWriter:
         cv2.rectangle(frame, (edge_pixels, edge_pixels), (self.width-edge_pixels, self.height-edge_pixels), (0, 0, 255), 2)
         
         return frame
+    
+    def mark_excluded_zone(self,
+                        frame: np.ndarray,
+                        exclude_box: list) -> np.ndarray:
+        """
+        Draws a red rectangle on the frame for the exclude zone,
+        clipping to the frame boundaries.
+
+        Args:
+            frame (np.ndarray): Image frame.
+            exclude_box (list): [x_min, y_min, x_max, y_max] defining the exclude zone.
+
+        Returns:
+            np.ndarray: Modified frame with the rectangle drawn.
+        """
+        x_min, y_min, x_max, y_max = exclude_box
+
+        # Clip the coordinates to frame dimensions
+        x_min = max(0, min(x_min, self.width - 1))
+        y_min = max(0, min(y_min, self.height - 1))
+        x_max = max(0, min(x_max, self.width - 1))
+        y_max = max(0, min(y_max, self.height - 1))
+
+        cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 0, 255), 6)
+        return frame
+    
+    def mark_included_zone(self,
+                        frame: np.ndarray,
+                        include_box: list) -> np.ndarray:
+        """
+        Draws a green rectangle on the frame for the include zone,
+        clipping to the frame boundaries.
+
+        Args:
+            frame (np.ndarray): Image frame.
+            include_box (list): [x_min, y_min, x_max, y_max] defining the include zone.
+
+        Returns:
+            np.ndarray: Modified frame with the rectangle drawn.
+        """
+        x_min, y_min, x_max, y_max = include_box
+
+        # Clip the coordinates to frame dimensions
+        x_min = max(0, min(x_min, self.width - 1))
+        y_min = max(0, min(y_min, self.height - 1))
+        x_max = max(0, min(x_max, self.width - 1))
+        y_max = max(0, min(y_max, self.height - 1))
+
+        cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 6)
+        return frame
+
     
     def setup_video_recording(self, 
                               output_directory: str,
@@ -158,7 +219,8 @@ class Recorder(VideoWriter):
                             show_video_output = output_config.show,
                             save_video_output = output_config.save,
                             edge_pixels = insect_config.edge_analysis.edge_pixels,
-                            video_codec = output_config.codec) 
+                            video_codec = output_config.codec,
+                            spatial_filtering = insect_config.spatial_filtering) 
         
         self.insect_tracks = []
         self.edge_pixels = insect_config.edge_analysis.edge_pixels
@@ -176,6 +238,8 @@ class Recorder(VideoWriter):
         self.continious_edge_analysis = insect_config.edge_analysis.continious_analysis
         self.video_frame_width, self.video_frame_height = output_config.resolution[0], output_config.resolution[1]
         self.compressed_time_as_filename = output_config.compressed_time_as_filename
+        self.spatial_filtering = insect_config.spatial_filtering
+   
 
         return None
 
@@ -362,6 +426,37 @@ class Recorder(VideoWriter):
             if len(nested_list) >= 3 and nested_list[1] is not None and nested_list[2] is not None:
                 return i  # Return the index of the last valid nested list
             
+    def is_valid_position(self, x, y):
+        """
+        Returns True if (x, y) passes the include/exclude box filters:
+
+        Args:
+            x (float): X-coordinate of the point.
+            y (float): Y-coordinate of the point.
+            include_box (list): [x_min, y_min, x_max, y_max] for inclusion.
+            exclude_box (list): [x_min, y_min, x_max, y_max] for exclusion.
+            use_include_box (bool): Enable/disable include filtering.
+            use_exclude_box (bool): Enable/disable exclude filtering.
+
+        Returns:
+            bool: True if point is valid based on filters, False otherwise.
+        """
+        # Check include box
+        if self.spatial_filtering.use_include_zone:
+            x_min, y_min, x_max, y_max = self.spatial_filtering.include_zone_coord
+            if not (x_min <= x <= x_max and y_min <= y <= y_max):
+                LOGGER.debug(f"Point ({x}, {y}) is outside the include box.")
+                return False  # Outside include zone
+
+        # Check exclude box
+        if self.spatial_filtering.use_exclude_zone:
+            x_min, y_min, x_max, y_max = self.spatial_filtering.exclude_zone_coord
+            if x_min <= x <= x_max and y_min <= y <= y_max:
+                LOGGER.debug(f"Point ({x}, {y}) is inside the exclude box.")
+                return False  # Inside exclude zone
+
+        return True
+            
     
     def record_new_insect(self, 
                           frame: np.ndarray, 
@@ -373,32 +468,33 @@ class Recorder(VideoWriter):
     
         for detection in new_insect_detections:
 
-            self.insect_count += 1
-                
             _x = int(float(detection[0]))
             _y = int(float(detection[1]))
-            # _area = int(float(detection[2]))
-            if len(detection) == 3:
-                _species = 0
-            else:
-                _species = int(detection[3])
-            _species_name = self.tracking_insects[_species]
-            # _confidence = float(detection[4])
-            # _status = 'In'
-            # _model = 'DL'
-            if self.compressed_video is True and self.compressed_time_as_filename is False:
-                _insect_num = self.generate_insect_num(mapped_frame_num, _species)
-            else:
-                _insect_num = self.generate_insect_num(nframe, _species)
-            # _flower = np.nan
-            recorded_info.append([_insect_num, _species ,_x, _y,])
 
-            self.manual_verification(frame,_insect_num, [_x, _y], self.tracking_insects[int(_species)])
-        
-            insect_record_new = [_insect_num, mapped_frame_num ,_species_name, [[mapped_frame_num, _x, _y, None]]]
-            self.insect_tracks.append(insect_record_new)
-            self.active_tracks.append(_insect_num)
+            if self.is_valid_position(_x, _y) is True:
 
+                self.insect_count += 1
+                # _area = int(float(detection[2]))
+                if len(detection) == 3:
+                    _species = 0
+                else:
+                    _species = int(detection[3])
+                _species_name = self.tracking_insects[_species]
+                # _confidence = float(detection[4])
+                # _status = 'In'
+                # _model = 'DL'
+                if self.compressed_video is True and self.compressed_time_as_filename is False:
+                    _insect_num = self.generate_insect_num(mapped_frame_num, _species)
+                else:
+                    _insect_num = self.generate_insect_num(nframe, _species)
+                # _flower = np.nan
+                recorded_info.append([_insect_num, _species ,_x, _y,])
+
+                self.manual_verification(frame,_insect_num, [_x, _y], self.tracking_insects[int(_species)])
+            
+                insect_record_new = [_insect_num, mapped_frame_num ,_species_name, [[mapped_frame_num, _x, _y, None]]]
+                self.insect_tracks.append(insect_record_new)
+                self.active_tracks.append(_insect_num)
 
         return recorded_info
     

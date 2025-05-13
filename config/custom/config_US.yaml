@@ -16,8 +16,8 @@ output:
     - 1920                             # Width of the output video in pixels.
     - 1080                             # Height of the output video in pixels.
   codec: "DIVX"                        # Codec used for compressing the output video.
-  show: False                          # Whether to display the video output during processing.
-  save: True                           # Whether to save the processed video output to a file.
+  show: True                          # Whether to display the video output during processing.
+  save: False                           # Whether to save the processed video output to a file.
   compressed_time_as_filename: False   # Use the time in the compressed video as filenames for insect detections..
 
 # Insect Tracking Configuration
@@ -91,6 +91,22 @@ insect_tracking:
       movement_threshold: 10                          # Intensity threshold for detecting motion. (Default: 120)
       show: False                                     # Display the output of the foreground detection model.
       clean_detections: True                          # Compare detections made in adjacent frames to remove duplicates.
+
+  spatial_filtering:
+    use_include_zone: True                          # Enable/disable spatial filtering.
+    include_zone_coord:                                   # Coordinates of the zone for spatial filtering.
+      - 500                                           # X-coordinate of the top-left corner of the zone.
+      - 200                                           # Y-coordinate of the top-left corner of the zone.
+      - 3500                                        # X-coordinate of the bottom-right corner of the zone.
+      - 2500                                        # Y-coordinate of the bottom-right corner of the zone.
+
+    use_exclude_zone: True                          # Enable/disable exclusion zone for spatial filtering.
+    exclude_zone_coord:                                   # Coordinates of the zone to be excluded from tracking.
+      - 1950                                           # X-coordinate of the top-left corner of the exclusion zone.
+      - 750                                           # Y-coordinate of the top-left corner of the exclusion zone.
+      - 2400                                        # X-coordinate of the bottom-right corner of the exclusion zone.
+      - 1150                                        # Y-coordinate of the bottom-right corner of the exclusion zone.
+
 
 # Flower Tracking Configuration
 flower_tracking:

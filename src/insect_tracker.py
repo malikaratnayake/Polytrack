@@ -490,8 +490,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         else:
             dl_associated_detections = []
             dl_missing_insects = fgbg_missing_insects
-            new_insects = fgbg_unassociated_detections
-        
+            new_insects = fgbg_unassociated_detections        
 
         return (fgbg_associated_detections, dl_associated_detections, dl_missing_insects, new_insects)
     
@@ -532,6 +531,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         potential_new_insects = self.remove_associated_detections(potential_new_insects, fgbg_associated_detections)
 
         if self.secondary_verification:
+
             new_insects = self.DL_verify_new_insects(frame, potential_new_insects, self.secondary_verification_confidence, self.secondary_verification_imgsz)
         else:
             new_insects = potential_new_insects
