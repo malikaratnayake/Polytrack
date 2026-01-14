@@ -39,11 +39,59 @@ class DL_Flower_Detector():
         detections[:, 5] = conf
 
         return detections
+
+    def _overlap_ratio_xyxy(self, a: np.ndarray, b: np.ndarray) -> float:
+        x1 = max(a[0], b[0])
+        y1 = max(a[1], b[1])
+        x2 = min(a[2], b[2])
+        y2 = min(a[3], b[3])
+        inter_w = max(0.0, x2 - x1)
+        inter_h = max(0.0, y2 - y1)
+        inter = inter_w * inter_h
+        area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+        area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
+        min_area = min(area_a, area_b)
+        if min_area <= 0.0:
+            return 0.0
+        return inter / min_area
+
+    def _merge_overlaps(self, detections: np.ndarray, overlap_thresh: float) -> np.ndarray:
+        if detections.size == 0:
+            return detections
+        merged = detections.astype(float).tolist()
+        changed = True
+        while changed:
+            changed = False
+            new_merged = []
+            while merged:
+                base = merged.pop(0)
+                bx1, by1, bx2, by2, bclass, bconf = base
+                i = 0
+                while i < len(merged):
+                    other = merged[i]
+                    if self._overlap_ratio_xyxy(np.array(base[:4]), np.array(other[:4])) >= overlap_thresh:
+                        bx1 = min(bx1, other[0])
+                        by1 = min(by1, other[1])
+                        bx2 = max(bx2, other[2])
+                        by2 = max(by2, other[3])
+                        if other[5] > bconf:
+                            bclass = other[4]
+                            bconf = other[5]
+                        base = [bx1, by1, bx2, by2, bclass, bconf]
+                        merged.pop(i)
+                        changed = True
+                    else:
+                        i += 1
+                new_merged.append(base)
+            merged = new_merged
+        return np.array(merged, dtype=float)
     
     def __calculate_cog(self, 
                         _results: np.ndarray) -> np.ndarray:
         
         _flower_detection = np.zeros(shape=(0,5))
+        overlap_thresh = max(0.0, 1.0 - self.flower_iou_threshold)
+        _results = self._merge_overlaps(_results, overlap_thresh)
 
         for result in _results:
             min_x = result[0]

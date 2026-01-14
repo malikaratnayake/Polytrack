@@ -78,7 +78,7 @@ class DL_Detector():
         
         results = self.insect_detector.predict(source=frame, 
                                                 conf=self.min_detector_confidence, 
-                                                show=False, 
+                                                show=True, 
                                                 verbose = False, 
                                                 save = False,
                                                 imgsz = (self.dl_image_size[1], self.dl_image_size[0]),
@@ -311,6 +311,8 @@ class FGBG_Detector(TrackingMethods):
 
         if self.compressed_video:
             detections = self.verify_detections(detections, frame)
+
+        # print(detections)
 
         return detections
 

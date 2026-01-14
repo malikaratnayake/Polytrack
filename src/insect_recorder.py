@@ -36,6 +36,7 @@ class VideoWriter:
         self.edge_pixels = edge_pixels
         self.spatial_filtering = spatial_filtering
         self.latest_flower_positions = []
+        self.updated_flower_positions_recorded = True
 
         if self.save_video_output or self.show_video_output:
             self.trajectory_frame = np.zeros((input_video_dimensions[1],input_video_dimensions[0],3), np.uint8)
@@ -140,10 +141,15 @@ class VideoWriter:
         try:
             if len(self.latest_flower_positions) > 0 and self.updated_flower_positions_recorded is False:
                 for flower in self.latest_flower_positions:
-                    _flower_num, _center_x, _center_y, _radius = int(flower[0]), int(flower[1]), int(flower[2]), int(flower[3]*self.flower_border)
-                    cv2.circle(self.trajectory_frame, (_center_x, _center_y), _radius, (0,0,255), 4)
-                    cv2.putText(self.trajectory_frame, 'F' +str(_flower_num), (_center_x+_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
-                self.updated_position_recorded = True
+                    _flower_num = int(flower[0])
+                    _center_x = int(flower[1])
+                    _center_y = int(flower[2])
+                    _radius = int(flower[3])
+                    _expanded_radius = int(round(_radius * self.flower_border))
+                    cv2.circle(self.trajectory_frame, (_center_x, _center_y), _expanded_radius, (0, 0, 255), 4)
+                    cv2.circle(self.trajectory_frame, (_center_x, _center_y), _radius, (0, 255, 255), 2)
+                    cv2.putText(self.trajectory_frame, 'F' + str(_flower_num), (_center_x + _expanded_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
+                self.updated_flower_positions_recorded = True
         except Exception as e:
             LOGGER.error(f'Error while updating flower positions: {e}')
 
@@ -783,6 +789,5 @@ class Recorder(VideoWriter):
     
 
 # Divide to n number of pices based on missing n frames
-
 
 

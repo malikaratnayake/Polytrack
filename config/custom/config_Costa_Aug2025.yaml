@@ -1,7 +1,7 @@
 # Directories for Input and Output Data
 directories:
-  source: "/Users/mrat0010/Documents/USA_Colab/Input/preprocessed_videos/IMG_1072_processed.MOV"    # Path to the directory containing input videos.
-  output: "/Users/mrat0010/Documents/USA_Colab/Output/"   # Path to save the processed output videos.
+  source: "/Users/mrat0010/Documents/Costa_Data/AGRICAM_2_20250729-Raw/"    # Path to the directory containing input videos.
+  output: "/Users/mrat0010/Documents/Costa_Data/Output/"   # Path to save the processed output videos.
 
 # Configuration for Input Video Properties
 source:
@@ -16,7 +16,7 @@ output:
     - 1920                             # Width of the output video in pixels.
     - 1080                             # Height of the output video in pixels.
   codec: "DIVX"                        # Codec used for compressing the output video.
-  show: False                          # Whether to display the video output during processing.
+  show: True                          # Whether to display the video output during processing.
   save: True                           # Whether to save the processed video output to a file.
   compressed_time_as_filename: False   # Use the time in the compressed video as filenames for insect detections..
 
@@ -29,13 +29,13 @@ insect_tracking:
     - 0
 
   prediction_method:                   # Algorithm for predicting insect movement. Comment out the lines not in use.
-    # - "ConstantVelocity"               # Constant velocity model.
-    - "KalmanFilter"                   # Kalman Filter
+    - "ConstantVelocity"               # Constant velocity model.
+    # - "KalmanFilter"                   # Kalman Filter
     # - "ExtendedKalmanFilter"           # Extended Kalman Filter
 
   assignment_method:                   # Algorithm for assigning insect detections to tracks. Comment out the lines not in use.
-    # - "HungarianMethod"                # Linear Sum Assignment or Hungarian Method
-    - "ABP"                            # Association by Proximity
+    - "HungarianMethod"                # Linear Sum Assignment or Hungarian Method
+    # - "ABP"                            # Association by Proximity
 
   detectors:                           # List of insect detection methods used.
     # - dl_detection                     # Primary AI-based detection model.
@@ -43,40 +43,40 @@ insect_tracking:
     # - secondary_verification           # Secondary AI-based detection model for additional validation of new insect detections.
 
   detection_interval: 300              # Number of frames between re-evaluating insect positions.
-  min_blob_area: 10                     # Minimum area (in pixels) for detected insect blobs.
-  max_blob_area: 5000                  # Maximum area (in pixels) for detected insect blobs.
-  insect_boundary_extension: 2       # Scale factor to extend the boundary around detected insects.
+  min_blob_area: 5                     # Minimum area (in pixels) for detected insect blobs.
+  max_blob_area: 8000                  # Maximum area (in pixels) for detected insect blobs.
+  insect_boundary_extension: 2.5       # Scale factor to extend the boundary around detected insects.
   iou_threshold: 0                     # IoU threshold for validating insect detections.
-  max_occlusions: 3                  # Maximum frames an insect can remain occluded and still be tracked.
-  max_occlusions_on_flower: 150        # Maximum frames a flower can remain occluded.
+  max_occlusions: 300                  # Maximum frames an insect can remain occluded and still be tracked.
+  max_occlusions_on_flower: 300        # Maximum frames a flower can remain occluded.
   jump_distance:                       # Maximum distance (in pixels) insects can move between frames.
     - 200                              # Maximum horizontal jump distance allowed with AI detection.
-    - 100                               # Maximum vertical jump distance allowed with foreground detection. Default: 35
-  min_track_length: 5                  # Minimum number of frames an insect must be tracked to be considered valid.
+    - 200                               # Maximum vertical jump distance allowed with foreground detection. Default: 35
+  min_track_length: 15                  # Minimum number of frames an insect must be tracked to be considered valid.
   compressed_video_time_jump: 100      # Time jump after which edge insects are re-evaluated in compressed videos.
   edge_analysis:                # Analysis of insect behavior near the frame edges.
-    edge_pixels: 20                    # Number of pixels near the frame edges considered as border cases.
-    max_edge_occlusions: 0              # Maximum occlusion frames near the edge of the frame.
+    edge_pixels: 40                    # Number of pixels near the frame edges considered as border cases.
+    max_edge_occlusions: 32              # Maximum occlusion frames near the edge of the frame.
     continious_analysis: False         # Enable continious analysis of edge insects.
     compressed_video_time_jump: 100    # Time jump after which edge insects are re-evaluated in compressed videos.
 
   # Detector-Specific Properties
   detector_properties:
     dl_detection:
-      model: "/Users/mrat0010/Documents/GitHub/WSU/Models/WSU_bees.pt"  # Path to the primary detection model.
+      model: "/Users/mrat0010/Documents/Costa_Aug_2025/Models/best.pt"  # Path to the primary detection model.
       detection_confidence:
-       - 0.5                                          # Minimum confidence score for valid detections.
+       - 0.2                                          # Minimum confidence score for valid detections.
       iou_threshold: 0                                # IoU threshold for validation.
       image_size:                                     # Size of the input image for the primary detection model.
-        - 1440                                         # Width of the input image in pixels.   
+        - 1920                                         # Width of the input image in pixels.   
         - 1088                                         # Height of the input image in pixels.     
 
     secondary_verification:
-      model:  "/Users/mrat0010/Documents/IJCV/Models/20250117/insects_best_l.pt" # Path to the secondary detection model.
+      model:  "/Users/mrat0010/Documents/Costa_Aug_2025/Models/best.pt" # Path to the secondary detection model.
       detection_confidence:                           # Minimum confidence scores for validating insect classes.
         - 0.5                                         # Confidence score for primary class (honeybees).
-        - 0.3                                         # Confidence score for secondary class (hoverflies).
-        - 0.3                                         # Confidence score for tertiary class (moths).
+        # - 0.3                                         # Confidence score for secondary class (hoverflies).
+        # - 0.3                                         # Confidence score for tertiary class (moths).
       black_pixel_threshold: 0.5                      # Threshold for black pixel density in detected regions.
       image_size:                                     # Size of the input image for the secondary detection model.  
         - 640                                         # Width of the input image in pixels.         
@@ -84,12 +84,12 @@ insect_tracking:
 
     fgbg_detection:
       model: 
-      # - 'FrameDifference'                             # Calculate the difference between consecutive frames.
-      - 'MOG2'                                        # Gaussian Mixture-based Background/Foreground Segmentation.
+      - 'FrameDifference'                             # Calculate the difference between consecutive frames.
+      # - 'MOG2'                                        # Gaussian Mixture-based Background/Foreground Segmentation.
       downscale_factor: 1                             # Scaling factor for downsampling frames during preprocessing.
-      dilate_kernel_size: 10                           # Kernel size for dilation operation during blob detection. (Default: 8)
-      movement_threshold: 10                          # Intensity threshold for detecting motion. (Default: 120)
-      show: False                                     # Display the output of the foreground detection model.
+      dilate_kernel_size: 8                           # Kernel size for dilation operation during blob detection. (Default: 8)
+      movement_threshold: 120                          # Intensity threshold for detecting motion. (Default: 120)
+      show: True                                     # Display the output of the foreground detection model.
       clean_detections: True                          # Compare detections made in adjacent frames to remove duplicates.
 
   spatial_filtering:
@@ -100,7 +100,7 @@ insect_tracking:
       - 3500                                        # X-coordinate of the bottom-right corner of the zone.
       - 2500                                        # Y-coordinate of the bottom-right corner of the zone.
 
-    use_exclude_zone: True                          # Enable/disable exclusion zone for spatial filtering.
+    use_exclude_zone: False                          # Enable/disable exclusion zone for spatial filtering.
     exclude_zone_coord:                                   # Coordinates of the zone to be excluded from tracking.
       - 775                                           # X-coordinate of the top-left corner of the exclusion zone.
       - 300                                           # Y-coordinate of the top-left corner of the exclusion zone.
@@ -110,17 +110,17 @@ insect_tracking:
 
 # Flower Tracking Configuration
 flower_tracking:
-  track: False                                        # Enable/disable flower tracking.
+  track: true                                        # Enable/disable flower tracking.
   labels: 
     - "flower"                                        # Human-readable labels for tracked flower classes.
   classes:                                            # Class IDs corresponding to flower classes.
     - 0
   detection_interval: 3000                             # Number of frames between flower detection updates.
-  border_extension: 1.5                              # Scale factor to extend boundaries for detected flowers.
+  border_extension: 2                              # Scale factor to extend boundaries for detected flowers.
   prediction_method: "ConstantVelocity"               # Algorithm for predicting flower movement.
 
   # Detector Properties for Flower Tracking
   detector_properties:
-    model: "/Users/mrat0010/Documents/GitHub/WSU/Models/WSU_flowers.pt"            # Path to the flower detection model.
+    model: "/Users/mrat0010/Documents/Costa_Data/Detection_Models/flowers.pt"            # Path to the flower detection model.
     detection_confidence: 0.1                         # Minimum confidence score for valid detections.
-    iou_threshold: 0.5                                # IoU threshold for flower detection validation.
+    iou_threshold: 0.95                                # IoU threshold for flower detection validation.
