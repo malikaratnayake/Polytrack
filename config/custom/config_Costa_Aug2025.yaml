@@ -38,7 +38,7 @@ insect_tracking:
     # - "ABP"                            # Association by Proximity
 
   detectors:                           # List of insect detection methods used.
-    # - dl_detection                     # Primary AI-based detection model.
+    - dl_detection                     # Primary AI-based detection model.
     - fgbg_detection                   # Foreground-based blob detection.
     # - secondary_verification           # Secondary AI-based detection model for additional validation of new insect detections.
 
@@ -65,13 +65,13 @@ insect_tracking:
   # Detector-Specific Properties
   detector_properties:
     dl_detection:
-      model: "/Users/mrat0010/Documents/Costa_Aug_2025/Models/best.pt"  # Path to the primary detection model.
+      model: "/Users/mrat0010/Documents/Costa_Data/Detection_Models/insects.pt"  # Path to the primary detection model.
       detection_confidence:
-       - 0.2                                          # Minimum confidence score for valid detections.
-      iou_threshold: 0                                # IoU threshold for validation.
+       - 0.02                                          # Minimum confidence score for valid detections.
+      iou_threshold: 0.5                                # IoU threshold for validation.
       image_size:                                     # Size of the input image for the primary detection model.
-        - 1920                                         # Width of the input image in pixels.   
-        - 1088                                         # Height of the input image in pixels.     
+        - 640                                         # Width of the input image in pixels.   
+        - 640                                         # Height of the input image in pixels.     
 
     secondary_verification:
       model:  "/Users/mrat0010/Documents/Costa_Aug_2025/Models/best.pt" # Path to the secondary detection model.

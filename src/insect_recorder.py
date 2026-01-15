@@ -37,6 +37,7 @@ class VideoWriter:
         self.spatial_filtering = spatial_filtering
         self.latest_flower_positions = []
         self.updated_flower_positions_recorded = True
+        self.rebuild_trajectory = False
 
         if self.save_video_output or self.show_video_output:
             self.trajectory_frame = np.zeros((input_video_dimensions[1],input_video_dimensions[0],3), np.uint8)
@@ -138,6 +139,13 @@ class VideoWriter:
                             new_insect_detections: np.ndarray, 
                             detections_for_predictions: np.ndarray,
                             dl_associated_detections: np.ndarray):
+        if self.rebuild_trajectory:
+            self.trajectory_frame = self._reset_trajectory_frame()
+            self._redraw_flower_positions()
+            self._redraw_insect_tracks()
+            self.rebuild_trajectory = False
+
+        verified_ids = getattr(self, "dl_confirmed_tracks", set())
         
         try:
             if len(self.latest_flower_positions) > 0 and self.updated_flower_positions_recorded is False:
@@ -156,18 +164,20 @@ class VideoWriter:
 
         for detection in detections_for_predictions:
             _insect_num, _x0, _y0, _x1, _y1 = detection
+            colour = (0, 0, 255) if _insect_num in verified_ids else self.track_colour(_insect_num)
 
             if _x0 is not None:
-                cv2.circle(self.trajectory_frame, (int(_x0), int(_y0)), 3, self.track_colour(_insect_num), 4)
+                cv2.circle(self.trajectory_frame, (int(_x0), int(_y0)), 3, colour, 4)
 
             if _x0 is not None and _x1 is not None:
-                cv2.line(self.trajectory_frame, (int(_x1),int(_y1)),(int(_x0),int(_y0)),self.track_colour(_insect_num),2)
+                cv2.line(self.trajectory_frame, (int(_x1),int(_y1)),(int(_x0),int(_y0)),colour,2)
 
 
         for record in new_insect_detections:
             _insect_num,_species, _x, _y = record
-            cv2.circle(self.trajectory_frame, (_x, _y), 3, self.track_colour(_insect_num), 4)
-            cv2.putText(self.trajectory_frame, str(self.tracking_insects[int(_species)])+' ' + str(_insect_num), (_x+20, _y+20), cv2.FONT_HERSHEY_DUPLEX , 0.7, self.track_colour(_insect_num), 1, cv2.LINE_AA) 
+            colour = (0, 0, 255) if _insect_num in verified_ids else self.track_colour(_insect_num)
+            cv2.circle(self.trajectory_frame, (_x, _y), 3, colour, 4)
+            cv2.putText(self.trajectory_frame, str(self.tracking_insects[int(_species)])+' ' + str(_insect_num), (_x+20, _y+20), cv2.FONT_HERSHEY_DUPLEX , 0.7, colour, 1, cv2.LINE_AA) 
 
         if len(dl_associated_detections) > 0:
             for det in dl_associated_detections:
@@ -209,6 +219,46 @@ class VideoWriter:
         else: _colour = (255,255,0)
         
         return _colour
+
+    def _reset_trajectory_frame(self) -> np.ndarray:
+        frame = np.zeros((self.height, self.width, 3), np.uint8)
+        frame = self.mark_boundary_edges(frame, self.edge_pixels)
+        if self.spatial_filtering.use_exclude_zone:
+            frame = self.mark_excluded_zone(frame, self.spatial_filtering.exclude_zone_coord)
+        if self.spatial_filtering.use_include_zone:
+            frame = self.mark_included_zone(frame, self.spatial_filtering.include_zone_coord)
+        return frame
+
+    def _redraw_flower_positions(self) -> None:
+        if len(self.latest_flower_positions) == 0:
+            return
+        for flower in self.latest_flower_positions:
+            _flower_num = int(flower[0])
+            _center_x = int(flower[1])
+            _center_y = int(flower[2])
+            _radius = int(flower[3])
+            _expanded_radius = int(round(_radius * self.flower_border))
+            cv2.circle(self.trajectory_frame, (_center_x, _center_y), _expanded_radius, (0, 0, 255), 4)
+            cv2.circle(self.trajectory_frame, (_center_x, _center_y), _radius, (0, 255, 255), 2)
+            cv2.putText(self.trajectory_frame, 'F' + str(_flower_num), (_center_x + _expanded_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
+
+    def _redraw_insect_tracks(self) -> None:
+        if not hasattr(self, "insect_tracks"):
+            return
+        verified_ids = getattr(self, "dl_confirmed_tracks", set())
+        for track in self.insect_tracks:
+            _insect_num = int(track[0])
+            colour = (0, 0, 255) if _insect_num in verified_ids else self.track_colour(_insect_num)
+            records = track[3]
+            prev_x = prev_y = None
+            for record in records:
+                x = record[1]
+                y = record[2]
+                if x is not None and y is not None:
+                    cv2.circle(self.trajectory_frame, (int(x), int(y)), 3, colour, 2)
+                    if prev_x is not None and prev_y is not None:
+                        cv2.line(self.trajectory_frame, (int(prev_x), int(prev_y)), (int(x), int(y)), colour, 1)
+                    prev_x, prev_y = x, y
     
 
    
@@ -383,6 +433,7 @@ class Recorder(VideoWriter):
             if self.track_sources.get(_insect_num) == "fgbg" and _insect_num not in self.dl_confirmed_tracks:
                 self.insect_tracks[insect_position][2] = self.tracking_insects[_species]
                 self.dl_confirmed_tracks.add(_insect_num)
+                self.rebuild_trajectory = True
                 if _insect_num not in self.dl_confirmed_saved:
                     self.save_track(insect_position)
                     self.dl_confirmed_saved.add(_insect_num)
