@@ -104,17 +104,28 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
         # Return distance as float for improved accuracy (if needed)
         return np.sqrt(squared_distance)
     
-    def Hungarian_method(self, _detections, _predictions):
-        num_detections, num_predictions = len(_detections), len(_predictions)
-        mat_shape = max(num_detections, num_predictions)
-        hun_matrix = np.full((mat_shape, mat_shape),0)
+    def Hungarian_method(self, detections, predictions, cost_threshold=None):
+        num_detections, num_predictions = len(detections), len(predictions)
+        if num_detections == 0 or num_predictions == 0:
+            return []
+
+        cost_matrix = np.zeros((num_predictions, num_detections))
         for p in np.arange(num_predictions):
             for d in np.arange(num_detections):
-                hun_matrix[p][d] = self.calculate_distance(_predictions[p][1],_predictions[p][2],_detections[d][0],_detections[d][1])
-        
-        row_ind, col_ind = linear_sum_assignment(hun_matrix)
+                cost_matrix[p][d] = self.calculate_distance(
+                    predictions[p][1],
+                    predictions[p][2],
+                    detections[d][0],
+                    detections[d][1],
+                )
 
-        return col_ind
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        assignments = []
+        for pred_idx, det_idx in zip(row_ind, col_ind):
+            if cost_threshold is None or cost_matrix[pred_idx][det_idx] <= cost_threshold:
+                assignments.append((det_idx, pred_idx))
+
+        return assignments
     
     def hungarian_assignment(self,detections, predictions, cost_threshold=0.0):
         """
@@ -370,4 +381,3 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
                 predicted.append([_insect_num, Pk[0], Pk[1]])
 
         return predicted
-

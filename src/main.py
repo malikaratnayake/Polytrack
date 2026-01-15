@@ -75,6 +75,7 @@ class TracknRecord():
         self.flower_detection_interval = flower_detection_interval
         self.skip_frames = skip_frames
         self.vid = cv2.VideoCapture(self.video_source)
+        self.total_frames = int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT)) if self.vid is not None else 0
         LOGGER.info(f"Processing video: {self.video_source}")        
 
         if self.compressed_video:
@@ -92,6 +93,10 @@ class TracknRecord():
                 if not self.skip_frames or (self.skip_frames and nframe % 2 != 0):
                     
                     mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
+                    if self.total_frames > 0:
+                        print(f"\rProcessing frame {mapped_frame_num}/{self.total_frames}", end="", flush=True)
+                    else:
+                        print(f"\rProcessing frame {mapped_frame_num}", end="", flush=True)
                     unverified_track_ids = self.RecordTracks.get_unverified_track_ids()
                     fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg = self.TrackInsects.run_tracker(frame, nframe, predicted_position, unverified_track_ids)
                     for_predictions, current_insect_positions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num, fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg)
@@ -110,9 +115,14 @@ class TracknRecord():
                         self.RecordFlowers.record_flower_visitations(insect_flower_visits, mapped_frame_num, self.RecordTracks.insect_tracks)
                         
 
-                if cv2.waitKey(1) & 0xFF == ord('q'): break
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    self.RecordTracks.save_inprogress_tracks(predicted_position)
+                    if self.RecordFlowers is not None:
+                        self.RecordFlowers.save_flower_tracks()
+                    break
 
             else:
+                print()
                 LOGGER.info("Finished processing video. Exiting...")
                 self.RecordTracks.save_inprogress_tracks(predicted_position)
                 if self.RecordFlowers is not None: self.RecordFlowers.save_flower_tracks()

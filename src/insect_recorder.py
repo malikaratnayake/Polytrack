@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import os
 import logging
+import math
+from pathlib import Path
 import matplotlib.pyplot as plt
 
 
@@ -162,8 +164,11 @@ class VideoWriter:
         except Exception as e:
             LOGGER.error(f'Error while updating flower positions: {e}')
 
+        missing_ids = set(self.missing_tracks)
         for detection in detections_for_predictions:
             _insect_num, _x0, _y0, _x1, _y1 = detection
+            if _insect_num in missing_ids:
+                continue
             colour = (0, 0, 255) if _insect_num in verified_ids else self.track_colour(_insect_num)
 
             if _x0 is not None:
@@ -311,10 +316,10 @@ class Recorder(VideoWriter):
         self.video_frame_width, self.video_frame_height = output_config.resolution[0], output_config.resolution[1]
         self.compressed_time_as_filename = output_config.compressed_time_as_filename
         self.spatial_filtering = insect_config.spatial_filtering
+        self.new_track_distance_thresh = getattr(insect_config, "new_track_distance_thresh", 20)
         self.track_sources = {}
         self.dl_confirmed_tracks = set()
-        self.dl_confirmed_saved = set()
-        self.save_only_dl_verified = getattr(insect_config, "save_only_dl_verified", False)
+        self.save_insect_snapshots = getattr(output_config, "save_insect_snapshots", True)
    
 
         return None
@@ -409,7 +414,7 @@ class Recorder(VideoWriter):
             insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == insect_num), None))
             insect_detections = self.insect_tracks[insect_position][3]
             last_detected_frame_position = self.find_last_detected_frame(insect_detections)
-            _, last_x, last_y, _ = insect_detections[last_detected_frame_position]
+            _, last_x, last_y, _ = insect_detections[last_detected_frame_position][:4]
 
             if self.detected_on_edge(last_x, last_y) is True:
                 self.save_track(insect_position)
@@ -441,9 +446,7 @@ class Recorder(VideoWriter):
                 self.insect_tracks[insect_position][2] = self.tracking_insects[_species]
                 self.dl_confirmed_tracks.add(_insect_num)
                 self.rebuild_trajectory = True
-                if _insect_num not in self.dl_confirmed_saved:
-                    self.save_track(insect_position)
-                    self.dl_confirmed_saved.add(_insect_num)
+                LOGGER.info(f'{_insect_num} track verified')
 
             if self.compressed_video:
                 if self.continious_edge_analysis and self.check_compressed_video_jump(mapped_frame_num, _insect_num):
@@ -566,6 +569,8 @@ class Recorder(VideoWriter):
             _y = int(float(detection[1]))
 
             if self.is_valid_position(_x, _y) is True:
+                if self.active_tracks and self._is_near_existing_track(_x, _y):
+                    continue
 
                 self.insect_count += 1
                 # _area = int(float(detection[2]))
@@ -584,7 +589,9 @@ class Recorder(VideoWriter):
                 # _flower = np.nan
                 recorded_info.append([_insect_num, _species ,_x, _y,])
 
-                self.manual_verification(frame,_insect_num, [_x, _y], self.tracking_insects[int(_species)])
+                LOGGER.info(f'New {self.tracking_insects[int(_species)]} detected: {_insect_num}')
+                if self.save_insect_snapshots:
+                    self.manual_verification(frame,_insect_num, [_x, _y], self.tracking_insects[int(_species)])
             
                 conf = None
                 if len(detection) > 4:
@@ -595,6 +602,19 @@ class Recorder(VideoWriter):
                 self.track_sources[_insect_num] = source
 
         return recorded_info
+
+    def _is_near_existing_track(self, x: int, y: int) -> bool:
+        for insect_id in self.active_tracks:
+            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == insect_id), None))
+            if insect_position is None:
+                continue
+            last_record = self.insect_tracks[insect_position][3][-1]
+            last_x, last_y = last_record[1], last_record[2]
+            if last_x is None or last_y is None:
+                continue
+            if math.hypot(x - last_x, y - last_y) <= self.new_track_distance_thresh:
+                return True
+        return False
     
 
     def generate_insect_num(self,
@@ -653,17 +673,11 @@ class Recorder(VideoWriter):
 
         LOGGER.info(f'Saving insect track: {insect_species}_{insect_num}')
 
-        if self.save_only_dl_verified and track_id not in self.dl_confirmed_tracks:
-            LOGGER.info(f'Skipping save for unverified track: {insect_species}_{insect_num}')
-            image_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+(str(insect_species)+'_'+str(insect_num)+'_img.png')
-            if os.path.exists(image_filepath):
-                os.remove(image_filepath)
-            return None
-
         detected_positions = len([record[1] for record in insect_track if record[1] is not None])
         if detected_positions >= self.min_track_length:
             filename = str(insect_species)+'_'+str(insect_num)
             output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'.csv'
+            insect_track = [record + [None] * (6 - len(record)) if len(record) < 6 else record for record in insect_track]
 
             with open(output_filepath, 'w') as f:
                 f.write('nframe, x, y, flower, detection_method, confidence\n')
@@ -683,11 +697,24 @@ class Recorder(VideoWriter):
 
 
             LOGGER.info(f'Completed tracking {insect_species}_{insect_num}. Insect track saved: {filename}')
+            verified = track_id in self.dl_confirmed_tracks
+            max_conf = self._max_dl_confidence(insect_track) if verified else None
+            track_length, detected_frames, distance, displacement = self._track_metrics(insect_track)
+            self._append_verification_info(
+                os.path.basename(output_filepath),
+                verified,
+                max_conf,
+                track_length,
+                detected_frames,
+                distance,
+                displacement,
+            )
 
         else:
             LOGGER.info(f'Insect {insect_species}_{insect_num} was not tracked long enough. Insect track not saved')
             image_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+(str(insect_species)+'_'+str(insect_num)+'_img.png')
-            os.remove(image_filepath)
+            if os.path.exists(image_filepath):
+                os.remove(image_filepath)
 
         
 
@@ -790,6 +817,64 @@ class Recorder(VideoWriter):
                 row[2] = int(round(row[2]))
 
         return interpolated_data
+
+    def _max_dl_confidence(self, insect_track: list) -> float | None:
+        confidences = []
+        for record in insect_track:
+            if len(record) > 5 and record[4] == "dl" and record[5] is not None:
+                confidences.append(float(record[5]))
+        return max(confidences) if confidences else None
+
+    def _append_verification_info(
+        self,
+        track_filename: str,
+        verified: bool,
+        confidence: float | None,
+        track_length: int,
+        detected_frames: int,
+        distance: float | None,
+        displacement: float | None,
+    ) -> None:
+        video_name = Path(self.video_source).stem if self.video_source else Path(self.output_directory).name
+        info_path = os.path.join(self.output_directory, f"{video_name}_verification_Info.csv")
+        should_write_header = not os.path.exists(info_path)
+        conf_value = "" if confidence is None else f"{confidence:.6f}"
+        distance_value = "" if distance is None else f"{distance:.3f}"
+        displacement_value = "" if displacement is None else f"{displacement:.3f}"
+        with open(info_path, "a") as f:
+            if should_write_header:
+                f.write("filename,verification,confidence,track_length,detected_frames,distance,displacement\n")
+            f.write(
+                f"{track_filename},{str(verified)},{conf_value},"
+                f"{track_length},{detected_frames},{distance_value},{displacement_value}\n"
+            )
+
+    def _track_metrics(self, insect_track: list) -> tuple[int, int, float | None, float | None]:
+        valid_positions = [r for r in insect_track if r[1] is not None and r[2] is not None]
+        if not valid_positions:
+            return 0, 0, None, None
+
+        first_frame = valid_positions[0][0]
+        last_frame = valid_positions[-1][0]
+        track_length = int(last_frame - first_frame + 1)
+        detected_frames = len(valid_positions)
+
+        first_x, first_y = valid_positions[0][1], valid_positions[0][2]
+        last_x, last_y = valid_positions[-1][1], valid_positions[-1][2]
+        displacement = float(math.hypot(last_x - first_x, last_y - first_y))
+
+        interpolated = self.process_and_interpolate_track([row[:] for row in insect_track])
+        distance = 0.0
+        prev = None
+        for row in interpolated:
+            x, y = row[1], row[2]
+            if x is None or y is None:
+                continue
+            if prev is not None:
+                distance += math.hypot(x - prev[0], y - prev[1])
+            prev = (x, y)
+
+        return track_length, detected_frames, distance, displacement
     
     def plot_insect_track(self,
                             insect_track: list,
@@ -859,7 +944,6 @@ class Recorder(VideoWriter):
             last_detected_frame_position = self.find_last_detected_frame(self.insect_tracks[insect_position][3])
             _, last_x, last_y, _ = self.insect_tracks[insect_position][3][last_detected_frame_position][:4]
 
-            # if last_detected_frame is not None:
             _x0 = _x1 = last_x
             _y0 = _y1 = last_y
 
@@ -872,7 +956,10 @@ class Recorder(VideoWriter):
     def save_inprogress_tracks(self, 
                                predicted_position: np.ndarray):
         
-        _tracking_insects = [int(i[0]) for i in predicted_position]
+        if predicted_position is None or len(predicted_position) == 0:
+            _tracking_insects = [int(record[0]) for record in self.insect_tracks]
+        else:
+            _tracking_insects = [int(i[0]) for i in predicted_position]
 
         for _insect in _tracking_insects:
             insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect), None))

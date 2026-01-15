@@ -175,26 +175,26 @@ class FlowerTracker(DL_Flower_Detector, TrackingMethods):
         new_flower_detections = np.zeros(shape=(0,unassociated_array_length))
         associated_flower_detections = np.zeros(shape=(0,6))
     
-        assignments = self.Hungarian_method(detections, predictions)
-        tracking_numbers = [i[0] for i in predictions]
-        num_of_flowers_tracked = len(tracking_numbers)
-          
-        for _unassociated in (assignments[num_of_flowers_tracked:]):
-            new_flower_detections = np.vstack([new_flower_detections,(detections[_unassociated])])       
-                                  
-          
-        for _flower in np.arange(num_of_flowers_tracked):
-            _flower_num = assignments[_flower]
-    
-            if (_flower_num < len(detections)):
-                _center_x, _center_y, _radius, _species, _confidence = self.decode_detections(detections, _flower_num)
-                _distance_error = self.calculate_distance(_center_x,_center_y, predictions[_flower][1], predictions[_flower][2])
-                if(_distance_error > max_interframe_travel_distance):
-                    missing_flowers.append(predictions[_flower][0])
-                else:
-                    associated_flower_detections = np.vstack([associated_flower_detections,(int(predictions[_flower][0]),_center_x, _center_y, _radius, _species, _confidence)])
-            else:
-                missing_flowers.append(predictions[_flower][0])
+        assignments = self.Hungarian_method(detections, predictions, cost_threshold=max_interframe_travel_distance)
+        assigned_det_indices = [a[0] for a in assignments]
+        assigned_pred_indices = [a[1] for a in assignments]
+
+        for det_idx, pred_idx in assignments:
+            _center_x, _center_y, _radius, _species, _confidence = self.decode_detections(detections, det_idx)
+            associated_flower_detections = np.vstack([
+                associated_flower_detections,
+                (int(predictions[pred_idx][0]), _center_x, _center_y, _radius, _species, _confidence),
+            ])
+
+        if len(detections) > 0:
+            unassociated_indices = np.setdiff1d(np.arange(len(detections)), assigned_det_indices)
+            for det_idx in unassociated_indices:
+                new_flower_detections = np.vstack([new_flower_detections, detections[det_idx]])
+
+        if len(predictions) > 0:
+            missing_pred_indices = np.setdiff1d(np.arange(len(predictions)), assigned_pred_indices)
+            for pred_idx in missing_pred_indices:
+                missing_flowers.append(predictions[pred_idx][0])
 
 
         return associated_flower_detections, missing_flowers, new_flower_detections

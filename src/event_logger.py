@@ -12,7 +12,7 @@ class EventLogger:
         # Set the logging level
         self.logger.setLevel(logging.DEBUG)
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.WARNING)
         # console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
         console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-6s] [%(module)-18s] [%(funcName)-20s] %(msg)s"))
 
