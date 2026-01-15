@@ -554,7 +554,14 @@ class InsectTracker(DL_Detector, FGBG_Detector):
             dl_missing_insects = fgbg_missing_insects
             new_insects = fgbg_unassociated_detections        
 
-        return (fgbg_associated_detections, dl_associated_detections, dl_missing_insects, new_insects, new_insects_fgbg)
+        if self.fgbg_detector:
+            base_missing = fgbg_missing_insects
+        else:
+            base_missing = dl_missing_insects
+        dl_ids = set(int(det[0]) for det in dl_associated_detections) if len(dl_associated_detections) > 0 else set()
+        missing_insects_out = [mid for mid in base_missing if mid not in dl_ids]
+
+        return (fgbg_associated_detections, dl_associated_detections, missing_insects_out, new_insects, new_insects_fgbg)
     
 
     def clean_detections(self, prev_detections, current_detections, distance_thresh=3.0, area_ratio_thresh=0.25):

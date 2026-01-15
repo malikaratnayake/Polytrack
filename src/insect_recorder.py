@@ -183,9 +183,7 @@ class VideoWriter:
             for det in dl_associated_detections:
                 _x = int(det[1])
                 _y = int(det[2])
-                size = 6
-                cv2.line(self.trajectory_frame, (_x - size, _y - size), (_x + size, _y + size), (0, 0, 255), 2)
-                cv2.line(self.trajectory_frame, (_x - size, _y + size), (_x + size, _y - size), (0, 0, 255), 2)
+                self._draw_x((_x, _y), (0, 0, 255), 2)
 
 
         cv2.putText(frame, f"Compressed Frame: {str(nframe)} | Uncompressed Frame: {str(mapped_frame_num)}", (20, 20), cv2.FONT_HERSHEY_DUPLEX , 0.8, (255,255,255), 1, cv2.LINE_AA)
@@ -219,6 +217,12 @@ class VideoWriter:
         else: _colour = (255,255,0)
         
         return _colour
+
+    def _draw_x(self, center: tuple[int, int], colour: tuple[int, int, int], thickness: int) -> None:
+        _x, _y = center
+        size = 6
+        cv2.line(self.trajectory_frame, (_x - size, _y - size), (_x + size, _y + size), colour, thickness)
+        cv2.line(self.trajectory_frame, (_x - size, _y + size), (_x + size, _y - size), colour, thickness)
 
     def _reset_trajectory_frame(self) -> np.ndarray:
         frame = np.zeros((self.height, self.width, 3), np.uint8)
@@ -254,8 +258,11 @@ class VideoWriter:
             for record in records:
                 x = record[1]
                 y = record[2]
+                method = record[4] if len(record) > 4 else None
                 if x is not None and y is not None:
                     cv2.circle(self.trajectory_frame, (int(x), int(y)), 3, colour, 2)
+                    if method == "dl":
+                        self._draw_x((int(x), int(y)), (0, 0, 255), 2)
                     if prev_x is not None and prev_y is not None:
                         cv2.line(self.trajectory_frame, (int(prev_x), int(prev_y)), (int(x), int(y)), colour, 1)
                     prev_x, prev_y = x, y
