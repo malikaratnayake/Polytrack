@@ -41,7 +41,7 @@ insect_tracking:
 
   detectors:                           # List of insect detection methods used.
     - dl_detection                     # Primary AI-based detection model.
-    - fgbg_detection                   # Foreground-based blob detection.
+    # - fgbg_detection                   # Foreground-based blob detection.
     # - secondary_verification           # Secondary AI-based detection model for additional validation of new insect detections.
 
   detection_interval: 300              # Number of frames between re-evaluating insect positions.

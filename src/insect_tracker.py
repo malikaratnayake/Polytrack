@@ -367,6 +367,8 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                  device: str) -> None:
 
         
+        TrackingMethods.__init__(self,
+                                 prediction_method=config.prediction_method)
         self.dl_detector, self.secondary_verification, self.fgbg_detector = self.detectors_in_use(config.detectors)
         
         if self.dl_detector is True or self.secondary_verification is True:
