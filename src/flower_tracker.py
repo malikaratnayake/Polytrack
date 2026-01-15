@@ -12,8 +12,11 @@ class DL_Flower_Detector():
                 flower_detector: str,
                 flower_iou_threshold: float,
                 flower_detection_confidence: float,
-                flower_classes: np.ndarray) -> None:
+                flower_classes: np.ndarray,
+                device: str) -> None:
+        self.device = device
         self.flower_detector = YOLO(flower_detector)
+        self.flower_detector.to(self.device)
         self.flower_iou_threshold = flower_iou_threshold
         self.flower_detection_confidence = flower_detection_confidence
         self.flower_classes = flower_classes
@@ -123,7 +126,8 @@ class DL_Flower_Detector():
                                                 show=False, 
                                                 verbose = False, 
                                                 iou = self.flower_iou_threshold, 
-                                                classes = self.flower_classes)
+                                                classes = self.flower_classes,
+                                                device=self.device)
         
         detections = self._decode_flower_detections(results)
         processed_detections = self.__calculate_cog(detections)
@@ -134,7 +138,8 @@ class DL_Flower_Detector():
 class FlowerTracker(DL_Flower_Detector, TrackingMethods):
 
     def __init__(self,
-                config: dict) -> None:
+                config: dict,
+                device: str) -> None:
         
         TrackingMethods.__init__(self,
                                  prediction_method = config.prediction_method)
@@ -143,7 +148,8 @@ class FlowerTracker(DL_Flower_Detector, TrackingMethods):
                              flower_detector = config.detector_properties.model,
                              flower_iou_threshold = config.detector_properties.iou_threshold,
                              flower_detection_confidence = config.detector_properties.detection_confidence,
-                             flower_classes = config.classes)
+                             flower_classes = config.classes,
+                             device=device)
         
         self.flower_predictions = []
         

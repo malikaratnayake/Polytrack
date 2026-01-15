@@ -17,14 +17,18 @@ class DL_Detector():
                 dl_detection_confidence: float,
                 dl_image_size: list,
                 tracking_insect_classes: list,
-                black_pixel_threshold: float) -> None:
+                black_pixel_threshold: float,
+                device: str) -> None:
         
+        self.device = device
         self.insect_detector = YOLO(insect_detector)
+        self.insect_detector.to(self.device)
         self.tracking_insect_classes = tracking_insect_classes
         self.insect_iou_threshold = insect_iou_threshold
         self.dl_detection_confidence =dl_detection_confidence
         self.min_detector_confidence = min(dl_detection_confidence)
         self.model_insects_large = YOLO(model_insects_large)
+        self.model_insects_large.to(self.device)
         self.black_pixel_threshold = black_pixel_threshold
         self.dl_image_size = dl_image_size
         self.prev_small_dl_candidates = np.zeros((0, 5))
@@ -113,7 +117,8 @@ class DL_Detector():
                                                 save = False,
                                                 imgsz = (self.dl_image_size[1], self.dl_image_size[0]),
                                                 iou = self.insect_iou_threshold, 
-                                                classes = self.tracking_insect_classes)
+                                                classes = self.tracking_insect_classes,
+                                                device=self.device)
         
         detections = self._decode_DL_results(results)
         processed_detections = self.__process_dl_detections(detections, fg_detections)
@@ -176,7 +181,8 @@ class DL_Detector():
                                                                       verbose = False, 
                                                                       classes = [insect_type], 
                                                                       augment =True, 
-                                                                      imgsz = (image_size[1],image_size[0]))
+                                                                      imgsz = (image_size[1],image_size[0]),
+                                                                      device=self.device)
 
                 new_insect_detections = self._decode_DL_results(new_insect_results)
 
@@ -357,7 +363,8 @@ class InsectTracker(DL_Detector, FGBG_Detector):
     def __init__(self,
                  config: dict,
                  source_config: dict,
-                 directory_config: dict) -> None:
+                 directory_config: dict,
+                 device: str) -> None:
 
         
         self.dl_detector, self.secondary_verification, self.fgbg_detector = self.detectors_in_use(config.detectors)
@@ -370,7 +377,8 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                                 dl_detection_confidence = config.detector_properties.dl_detection.detection_confidence,
                                 dl_image_size = config.detector_properties.dl_detection.image_size,
                                 tracking_insect_classes = config.classes,
-                                black_pixel_threshold = config.detector_properties.secondary_verification.black_pixel_threshold)
+                                black_pixel_threshold = config.detector_properties.secondary_verification.black_pixel_threshold,
+                                device=device)
             dl_props = config.detector_properties.dl_detection
             self.small_box_area_thresh = getattr(dl_props, "small_box_area_thresh", self.small_box_area_thresh)
             self.small_box_match_distance = getattr(dl_props, "small_box_match_distance", self.small_box_match_distance)

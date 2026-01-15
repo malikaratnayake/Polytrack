@@ -8,11 +8,12 @@ class EventLogger:
     logger = logging.getLogger()
     pre_logger_messages = []  # Temporary storage for messages before logger is configured
 
-    def __init__(self, _log_directory):
+    def __init__(self, _log_directory, log_level="INFO"):
+        log_level_value = logging._nameToLevel.get(str(log_level).upper(), logging.INFO)
         # Set the logging level
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(log_level_value)
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.WARNING)
+        console_handler.setLevel(logging.CRITICAL + 1)
         # console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
         console_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-6s] [%(module)-18s] [%(funcName)-20s] %(msg)s"))
 
@@ -20,7 +21,7 @@ class EventLogger:
         
         # Create a file handler
         file_handler = logging.FileHandler(log_filename)
-        file_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(logging.INFO)
         # file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-8s] [%(module)-14s] [%(funcName)-14s] [%(threadName)-14s] %(msg)s"))
         file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)-6s] [%(module)-18s] [%(funcName)-20s] %(msg)s"))
 

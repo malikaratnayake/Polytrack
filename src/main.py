@@ -5,6 +5,7 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 from itertools import product
+import importlib
 import cv2
 import numpy as np
 from insect_tracker import InsectTracker
@@ -199,8 +200,22 @@ def main(directory_config: Config):
     if not output_directory.exists():
         output_directory.mkdir()
 
-    EventLogger(output_directory)
+    EventLogger(output_directory, getattr(OUTPUT_CONFIG, "log_level", "INFO"))
     LOGGER.info(f"Outputting to {output_filename}")
+    device = "cpu"
+    torch_spec = importlib.util.find_spec("torch")
+    if torch_spec is not None:
+        import torch
+        if torch.cuda.is_available():
+            device = "cuda:0"
+            LOGGER.info(f"Using GPU: {torch.cuda.get_device_name(0)}")
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            device = "mps"
+            LOGGER.info("Using GPU: Apple MPS")
+        else:
+            LOGGER.info("Using CPU (no GPU available)")
+    else:
+        LOGGER.info("Using CPU (torch not available)")
     
     # Create a copy of the config file in the output directory
     #     Save the updated configurations back to the YAML file
@@ -225,7 +240,8 @@ def main(directory_config: Config):
     track_insects = InsectTracker(
         config = INSECT_CONFIG,
         source_config=SOURCE_CONFIG,
-        directory_config=directory_config)
+        directory_config=directory_config,
+        device=device)
     
     
     record_tracks = Recorder(
@@ -238,7 +254,8 @@ def main(directory_config: Config):
     
     if FLOWER_CONFIG.track:
         track_flowers = FlowerTracker(
-            config = FLOWER_CONFIG)
+            config = FLOWER_CONFIG,
+            device=device)
         
         record_flowers = FlowerRecorder(
             config = FLOWER_CONFIG,
@@ -257,7 +274,12 @@ def main(directory_config: Config):
     
     
     # Run the TracknRecord instance
-    frames_processed = track_and_record.run()
+    try:
+        frames_processed = track_and_record.run()
+    except KeyboardInterrupt:
+        print()
+        LOGGER.info("Keyboard interrupt received. Terminating process.")
+        os._exit(1)
 
 
     # Add any extra stats/metadata to output too
