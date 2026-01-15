@@ -93,10 +93,20 @@ class TracknRecord():
                 if not self.skip_frames or (self.skip_frames and nframe % 2 != 0):
                     
                     mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
+                    tracking_count, verified_count, saved_count, saved_verified = self.RecordTracks.get_tracking_stats()
+                    flower_count = len(self.RecordTracks.latest_flower_positions) if hasattr(self.RecordTracks, "latest_flower_positions") else 0
                     if self.total_frames > 0:
-                        print(f"\rProcessing frame {mapped_frame_num}/{self.total_frames}", end="", flush=True)
+                        progress = f"{mapped_frame_num}/{self.total_frames}"
                     else:
-                        print(f"\rProcessing frame {mapped_frame_num}", end="", flush=True)
+                        progress = f"{mapped_frame_num}"
+                    print(
+                        f"\r{Path(self.video_source).name} | {progress} frames processed | "
+                        f"{tracking_count} active tracks ({verified_count} verified) | "
+                        f"{saved_count} saved tracks ({saved_verified} verified) | "
+                        f"{flower_count} flowers recorded",
+                        end="",
+                        flush=True,
+                    )
                     unverified_track_ids = self.RecordTracks.get_unverified_track_ids()
                     fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg = self.TrackInsects.run_tracker(frame, nframe, predicted_position, unverified_track_ids)
                     for_predictions, current_insect_positions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num, fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg)
@@ -123,6 +133,14 @@ class TracknRecord():
 
             else:
                 print()
+                tracking_count, verified_count, saved_count, saved_verified = self.RecordTracks.get_tracking_stats()
+                flower_count = len(self.RecordTracks.latest_flower_positions) if hasattr(self.RecordTracks, "latest_flower_positions") else 0
+                print(
+                    f"Tracking finished for {Path(self.video_source).name} | "
+                    f"{mapped_frame_num} frames processed | "
+                    f"{saved_count} tracks saved ({saved_verified} verified) | "
+                    f"{flower_count} flowers recorded"
+                )
                 LOGGER.info("Finished processing video. Exiting...")
                 self.RecordTracks.save_inprogress_tracks(predicted_position)
                 if self.RecordFlowers is not None: self.RecordFlowers.save_flower_tracks()

@@ -204,6 +204,7 @@ class FGBG_Detector(TrackingMethods):
                  downscale_factor: int,
                  dilate_kernel_size: int,
                  movement_threshold: int,
+                 warmup_frames: int,
                  compressed_video: bool,
                  video_filepath: str,
                  info_filename:str,
@@ -216,6 +217,8 @@ class FGBG_Detector(TrackingMethods):
         self.downscale_factor = downscale_factor
         self.dilate_kernel_size = dilate_kernel_size
         self.movement_threshold = movement_threshold
+        self.warmup_frames = warmup_frames
+        self.warmup_count = 0
         self.compressed_video = compressed_video
         self.video_filepath = video_filepath
         self.info_filename = info_filename
@@ -265,6 +268,9 @@ class FGBG_Detector(TrackingMethods):
         # Compute pixel difference between consecutive frames 
         if self.fgbf_model == "MOG2":
             diff_frame = self.mog2_model.apply(frame)
+            self.warmup_count += 1
+            if self.warmup_count <= self.warmup_frames:
+                return np.zeros_like(frame)
         else:
             diff_frame = cv2.absdiff(frame, self.prev_frame)
 
@@ -379,6 +385,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                                     downscale_factor = config.detector_properties.fgbg_detection.downscale_factor,
                                     dilate_kernel_size = config.detector_properties.fgbg_detection.dilate_kernel_size,
                                     movement_threshold = config.detector_properties.fgbg_detection.movement_threshold,
+                                    warmup_frames = config.detector_properties.fgbg_detection.warmup_frames,
                                     compressed_video = source_config.compressed_video,
                                     video_filepath = directory_config.source,
                                     info_filename = source_config.compression_info,
@@ -485,12 +492,9 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 # dl_predictions = np.zeros(shape=(0,3))
                 # for pred in np.arange(len(fgbg_missing_insects)):
                 #     dl_predictions = np.vstack([dl_predictions,([row for row in self.predictions if fgbg_missing_insects[pred] == row[0]])])
-            if (len(fgbg_missing_insects) > 0  
-                or len(fgbg_unassociated_detections) > 0  
-                or len(fg_detections) > len(self.predictions)  
-                or (len(fg_detections) == 0 and self.compressed_video)  
+            if ((len(fgbg_missing_insects) > 0 or len(fgbg_unassociated_detections) > 0)
                 or len(unverified_track_ids) > 0
-                or self.fgbg_detector is False):    
+                or self.fgbg_detector is False):
 
                 
                 dl_detections = self.run_dl_detector(frame, fg_detections)
@@ -530,8 +534,7 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                     dl_missing_insects = fgbg_missing_insects
 
                 else:
-
-                    fgbg_associated_detections, fgbg_missing_insects = [], []
+                    fgbg_associated_detections = []
 
                 
 

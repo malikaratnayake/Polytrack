@@ -319,7 +319,10 @@ class Recorder(VideoWriter):
         self.new_track_distance_thresh = getattr(insect_config, "new_track_distance_thresh", 20)
         self.track_sources = {}
         self.dl_confirmed_tracks = set()
+        self.saved_track_ids = set()
+        self.saved_verified_track_ids = set()
         self.save_insect_snapshots = getattr(output_config, "save_insect_snapshots", True)
+        self.missing_counts = {}
    
 
         return None
@@ -401,6 +404,7 @@ class Recorder(VideoWriter):
             insect_record = [mapped_frame_num, _x, _y, _flower, "fgbg", None]
             self.insect_tracks[insect_position][3].append(insect_record)
             self.active_tracks.append(_insect_num)
+            self.missing_counts[_insect_num] = 0
 
         return None
     
@@ -463,6 +467,7 @@ class Recorder(VideoWriter):
             insect_record = [mapped_frame_num, _x, _y, _flower, "dl", float(detection[5])]
             self.insect_tracks[insect_position][3].append(insect_record)
             self.active_tracks.append(_insect_num)
+            self.missing_counts[_insect_num] = 0
 
         return None
     
@@ -484,6 +489,7 @@ class Recorder(VideoWriter):
             
             insect_record = [mapped_frame_num, _x, _y, _flower, None, None]
             self.insect_tracks[insect_position][3].append(insect_record)
+            self.missing_counts[_insect_num] = self.missing_counts.get(_insect_num, 0) + 1
 
         return None
     
@@ -500,13 +506,16 @@ class Recorder(VideoWriter):
         last_detected_frame, last_x, last_y, last_flower = insect_detections[last_detected_frame_position][:4]
 
         last_detected_along_edge = self.detected_on_edge(last_x, last_y)
-        no_of_missing_frames = mapped_frame_num - last_detected_frame
+        no_of_missing_frames = self.missing_counts.get(insect_num, mapped_frame_num - last_detected_frame)
 
         
         if ((last_detected_along_edge is True) and (no_of_missing_frames > self.max_occlusions_edge)):
             self.save_track(insect_position)
 
-        elif (no_of_missing_frames > self.max_occlusions):
+        elif (no_of_missing_frames > self.max_occlusions) and (last_flower is None):
+            self.save_track(insect_position)
+
+        elif (no_of_missing_frames > self.max_occlusions_on_flower) and (last_flower is not None):
             self.save_track(insect_position)
         else:
             active_but_missing = True
@@ -600,6 +609,7 @@ class Recorder(VideoWriter):
                 self.insect_tracks.append(insect_record_new)
                 self.active_tracks.append(_insect_num)
                 self.track_sources[_insect_num] = source
+                self.missing_counts[_insect_num] = 0
 
         return recorded_info
 
@@ -709,6 +719,9 @@ class Recorder(VideoWriter):
                 distance,
                 displacement,
             )
+            self.saved_track_ids.add(track_id)
+            if verified:
+                self.saved_verified_track_ids.add(track_id)
 
         else:
             LOGGER.info(f'Insect {insect_species}_{insect_num} was not tracked long enough. Insect track not saved')
@@ -968,6 +981,13 @@ class Recorder(VideoWriter):
 
     def get_unverified_track_ids(self) -> list[int]:
         return [track_id for track_id, source in self.track_sources.items() if source == "fgbg" and track_id not in self.dl_confirmed_tracks]
+
+    def get_tracking_stats(self) -> tuple[int, int, int, int]:
+        tracking_count = len(self.insect_tracks)
+        verified_count = len(self.dl_confirmed_tracks)
+        saved_count = len(self.saved_track_ids)
+        saved_verified = len(self.saved_verified_track_ids)
+        return tracking_count, verified_count, saved_count, saved_verified
 
 
     
