@@ -92,8 +92,9 @@ class TracknRecord():
                 if not self.skip_frames or (self.skip_frames and nframe % 2 != 0):
                     
                     mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
-                    fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects = self.TrackInsects.run_tracker(frame, nframe, predicted_position)
-                    for_predictions, current_insect_positions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num,fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects)
+                    unverified_track_ids = self.RecordTracks.get_unverified_track_ids()
+                    fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg = self.TrackInsects.run_tracker(frame, nframe, predicted_position, unverified_track_ids)
+                    for_predictions, current_insect_positions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num, fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg)
                     predicted_position = self.TrackInsects.predict_next(for_predictions)
 
 

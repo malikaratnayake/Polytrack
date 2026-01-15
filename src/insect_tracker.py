@@ -27,6 +27,11 @@ class DL_Detector():
         self.model_insects_large = YOLO(model_insects_large)
         self.black_pixel_threshold = black_pixel_threshold
         self.dl_image_size = dl_image_size
+        self.prev_small_dl_candidates = np.zeros((0, 5))
+        self.small_box_area_thresh = 500.0
+        self.small_box_match_distance = 15.0
+        self.low_confidence_floor = 0.05
+        self.fg_proximity_distance = 20.0
 
         return None
     
@@ -51,9 +56,12 @@ class DL_Detector():
         return detections
     
     def __process_dl_detections(self, 
-                        _results: np.ndarray) -> np.ndarray:
+                        _results: np.ndarray,
+                        fg_detections: np.ndarray | None = None) -> np.ndarray:
         
         _insect_detection = np.zeros(shape=(0,5))
+        small_candidates = []
+        fg_detections = np.asarray(fg_detections) if fg_detections is not None else np.zeros((0, 3))
 
         for result in _results:
             insect_class = int(result[4])
@@ -67,18 +75,40 @@ class DL_Detector():
                 _insect_detection = np.vstack([_insect_detection,(mid_x, mid_y, area, insect_class, confidence)])
 
             else:
-                pass
+                mid_x = int((result[0] + result[2])/2)
+                mid_y = int((result[1] + result[3])/2)
+                area = int(abs((result[0] - result[2])*(result[1] - result[3])))
+                if confidence >= self.low_confidence_floor and area <= self.small_box_area_thresh:
+                    consistent = False
+                    if self.prev_small_dl_candidates.size > 0:
+                        prev = self.prev_small_dl_candidates
+                        prev = prev[prev[:, 3] == insect_class]
+                        if prev.size > 0:
+                            dists = np.hypot(prev[:, 0] - mid_x, prev[:, 1] - mid_y)
+                            consistent = bool(np.min(dists) <= self.small_box_match_distance)
+                    fg_near = False
+                    if fg_detections.size > 0:
+                        dists = np.hypot(fg_detections[:, 0] - mid_x, fg_detections[:, 1] - mid_y)
+                        fg_near = bool(np.min(dists) <= self.fg_proximity_distance)
 
+                    if consistent or fg_near:
+                        _insect_detection = np.vstack([_insect_detection,(mid_x, mid_y, area, insect_class, confidence)])
+
+                if area <= self.small_box_area_thresh:
+                    small_candidates.append([mid_x, mid_y, area, insect_class, confidence])
+
+        self.prev_small_dl_candidates = np.array(small_candidates) if small_candidates else np.zeros((0, 5))
         return _insect_detection
         
 
     def run_dl_detector(self, 
-                        frame: np.ndarray) -> np.ndarray:
+                        frame: np.ndarray,
+                        fg_detections: np.ndarray | None = None) -> np.ndarray:
 
         
         results = self.insect_detector.predict(source=frame, 
                                                 conf=self.min_detector_confidence, 
-                                                show=True, 
+                                                show=False, 
                                                 verbose = False, 
                                                 save = False,
                                                 imgsz = (self.dl_image_size[1], self.dl_image_size[0]),
@@ -86,7 +116,7 @@ class DL_Detector():
                                                 classes = self.tracking_insect_classes)
         
         detections = self._decode_DL_results(results)
-        processed_detections = self.__process_dl_detections(detections)
+        processed_detections = self.__process_dl_detections(detections, fg_detections)
 
         return processed_detections
     
@@ -335,6 +365,11 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                                 dl_image_size = config.detector_properties.dl_detection.image_size,
                                 tracking_insect_classes = config.classes,
                                 black_pixel_threshold = config.detector_properties.secondary_verification.black_pixel_threshold)
+            dl_props = config.detector_properties.dl_detection
+            self.small_box_area_thresh = getattr(dl_props, "small_box_area_thresh", self.small_box_area_thresh)
+            self.small_box_match_distance = getattr(dl_props, "small_box_match_distance", self.small_box_match_distance)
+            self.low_confidence_floor = getattr(dl_props, "low_confidence_floor", self.low_confidence_floor)
+            self.fg_proximity_distance = getattr(dl_props, "fg_proximity_distance", self.fg_proximity_distance)
         
         if self.fgbg_detector is True:
             FGBG_Detector.__init__(self,
@@ -361,6 +396,10 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         self.clean_fgbg_detections = config.detector_properties.fgbg_detection.clean_detections
         if self.clean_fgbg_detections:
             self.prev_fgbg_detection = None
+        fgbg_props = config.detector_properties.fgbg_detection
+        self.clean_distance_thresh = getattr(fgbg_props, "clean_distance_thresh", 3.0)
+        self.clean_area_ratio_thresh = getattr(fgbg_props, "clean_area_ratio_thresh", 0.25)
+        self.missing_jump_scale = getattr(config, "missing_jump_scale", 1.5)
 
         try:
             self.assignment_method = config.assignment_method[0]
@@ -388,12 +427,16 @@ class InsectTracker(DL_Detector, FGBG_Detector):
     def run_tracker(self, 
                     frame: np.ndarray,
                     nframe: int,
-                    predictions: np.ndarray) -> np.ndarray:
+                    predictions: np.ndarray,
+                    unverified_track_ids: list[int] | None = None) -> np.ndarray:
                 
         
         self.predictions = predictions
 
         LOGGER.debug(f"Frame Number: {nframe}------------------------------")
+
+        if unverified_track_ids is None:
+            unverified_track_ids = []
 
         if self.fgbg_detector is True:
         
@@ -404,7 +447,12 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 if self.prev_fgbg_detection is None:
                     self.prev_fgbg_detection = fg_detections
 
-                fg_detections = self.clean_detections(self.prev_fgbg_detection, fg_detections)
+                fg_detections = self.clean_detections(
+                    self.prev_fgbg_detection,
+                    fg_detections,
+                    distance_thresh=self.clean_distance_thresh,
+                    area_ratio_thresh=self.clean_area_ratio_thresh,
+                )
                 
             dl_detections = None
 
@@ -429,6 +477,8 @@ class InsectTracker(DL_Detector, FGBG_Detector):
             fgbg_associated_detections, fgbg_unassociated_detections, fg_detections = [], [], []
             fgbg_missing_insects = [i[0] for i in self.predictions]
 
+        new_insects_fgbg = fgbg_unassociated_detections if self.fgbg_detector else []
+
         if self.dl_detector is True:
 
             # if ((len(fgbg_missing_insects) >0  or len(fgbg_unassociated_detections)>0 or (len(fg_detections) > len(self.predictions)) or (len(fg_detections) == 0 and self.compressed_video)) and ((self.compressed_video and (nframe not in self.full_frame_num)) or (not self.compressed_video))) or self.fgbg_detector is False:
@@ -439,10 +489,11 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 or len(fgbg_unassociated_detections) > 0  
                 or len(fg_detections) > len(self.predictions)  
                 or (len(fg_detections) == 0 and self.compressed_video)  
+                or len(unverified_track_ids) > 0
                 or self.fgbg_detector is False):    
 
                 
-                dl_detections = self.run_dl_detector(frame)
+                dl_detections = self.run_dl_detector(frame, fg_detections)
 
                 # if len(fgbg_associated_detections) > 0: 
                 #     fgbg_associated_positions = fgbg_associated_detections[:, 1:4]
@@ -451,6 +502,15 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 #     combined_fgbg_detections = [fgbg_associated_detections, fgbg_unassociated_detections]
 
                 dl_associated_detections, dl_missing_insects, potential_new_insects = self.process_detections(fg_detections, dl_detections, self.predictions)
+
+                if len(potential_new_insects) > 0 and len(dl_missing_insects) > 0:
+                    relinked, potential_new_insects, dl_missing_insects = self.relink_missing_tracks(
+                        potential_new_insects,
+                        dl_missing_insects,
+                        self.predictions,
+                    )
+                    if len(relinked) > 0:
+                        dl_associated_detections = np.vstack([dl_associated_detections, relinked])
 
                 if potential_new_insects.any() and (not self.compressed_video or (self.compressed_video and (nframe not in self.full_frame_num))):
                     new_insects = self.verify_new_insects(frame, potential_new_insects, fgbg_associated_detections)
@@ -494,28 +554,119 @@ class InsectTracker(DL_Detector, FGBG_Detector):
             dl_missing_insects = fgbg_missing_insects
             new_insects = fgbg_unassociated_detections        
 
-        return (fgbg_associated_detections, dl_associated_detections, dl_missing_insects, new_insects)
+        return (fgbg_associated_detections, dl_associated_detections, dl_missing_insects, new_insects, new_insects_fgbg)
     
 
-    def clean_detections(self, prev_detections, current_detections):
+    def clean_detections(self, prev_detections, current_detections, distance_thresh=3.0, area_ratio_thresh=0.25):
         """
-        Cleans `current_detections` by removing any detections close to `prev_detections`
-        based on their x and y positions.
-
-        Parameters:
-            prev_detections (list of lists): List of previous detections [[x, y, a], ...].
-            current_detections (list of lists): List of current detections [[x, y, a], ...].
-
-        Returns:
-            list of lists: Cleaned `current_detections`.
+        Removes near-duplicate detections using distance and area similarity.
         """
-        # Use a set for fast lookup of (x, y) positions
-        prev_positions = {(x, y) for x, y, _ in prev_detections}
+        prev_detections = np.asarray(prev_detections)
+        current_detections = np.asarray(current_detections)
 
-        # Filter current detections
-        cleaned_detections = [det for det in current_detections if (det[0], det[1]) not in prev_positions]
+        if prev_detections.size == 0 or current_detections.size == 0:
+            return current_detections
 
-        return cleaned_detections
+        cleaned = []
+        for det in current_detections:
+            x, y, area = det
+            is_duplicate = False
+            for px, py, parea in prev_detections:
+                if np.hypot(x - px, y - py) <= distance_thresh:
+                    if parea <= 0 or abs(area - parea) / parea <= area_ratio_thresh:
+                        is_duplicate = True
+                        break
+            if not is_duplicate:
+                cleaned.append(det)
+
+        if not cleaned:
+            return np.zeros((0, current_detections.shape[1]))
+
+        return np.array(cleaned, dtype=float)
+
+    def relink_missing_tracks(self, unassociated_detections, missing_ids, predictions, relink_scale=1.5):
+        unassociated_detections = np.asarray(unassociated_detections)
+        predictions = np.asarray(predictions) if isinstance(predictions, list) else predictions
+
+        if unassociated_detections.size == 0 or predictions.size == 0 or len(missing_ids) == 0:
+            return np.zeros((0, 6)), unassociated_detections, missing_ids
+
+        missing_mask = np.isin(predictions[:, 0], missing_ids)
+        missing_predictions = predictions[missing_mask]
+
+        if missing_predictions.size == 0:
+            return np.zeros((0, 6)), unassociated_detections, missing_ids
+
+        max_dist = self.max_interframe_travel[0] * relink_scale
+        assignments = self.assign_by_proximity(
+            detections=unassociated_detections,
+            predictions=missing_predictions,
+            cost_threshold=max_dist,
+        )
+
+        if not assignments:
+            return np.zeros((0, 6)), unassociated_detections, missing_ids
+
+        relinked = np.zeros((len(assignments), 6))
+        assigned_det_indices = []
+        relinked_ids = []
+        for i, (det_idx, pred_idx) in enumerate(assignments):
+            x, y, area, species, confidence = self.decode_detections(unassociated_detections, det_idx)
+            insect_id = int(missing_predictions[pred_idx, 0])
+            relinked[i] = [insect_id, x, y, area, species, confidence]
+            assigned_det_indices.append(det_idx)
+            relinked_ids.append(insect_id)
+
+        remaining_unassociated = np.delete(unassociated_detections, assigned_det_indices, axis=0)
+        remaining_missing = [mid for mid in missing_ids if mid not in relinked_ids]
+
+        return relinked, remaining_unassociated, remaining_missing
+
+    def rescue_missing_assignments(self,
+                                   detections: np.ndarray,
+                                   predictions: np.ndarray,
+                                   assigned_det_indices: np.ndarray,
+                                   assigned_pred_indices: np.ndarray,
+                                   max_interframe_travel_distance: float,
+                                   rescue_scale: float):
+        detections = np.asarray(detections)
+        predictions = np.asarray(predictions)
+
+        if detections.size == 0 or predictions.size == 0:
+            return []
+
+        unassigned_det_mask = np.ones(len(detections), dtype=bool)
+        if len(assigned_det_indices) > 0:
+            unassigned_det_mask[assigned_det_indices] = False
+        unassigned_det_indices = np.where(unassigned_det_mask)[0]
+
+        missing_pred_indices = np.setdiff1d(np.arange(len(predictions)), assigned_pred_indices)
+        if len(unassigned_det_indices) == 0 or len(missing_pred_indices) == 0:
+            return []
+
+        rescue_threshold = max_interframe_travel_distance * rescue_scale
+        candidates = []
+        for pred_idx in missing_pred_indices:
+            px, py = predictions[pred_idx, 1], predictions[pred_idx, 2]
+            for det_idx in unassigned_det_indices:
+                dx = detections[det_idx][0] - px
+                dy = detections[det_idx][1] - py
+                dist = float(np.hypot(dx, dy))
+                if dist <= rescue_threshold:
+                    candidates.append((dist, det_idx, pred_idx))
+
+        candidates.sort(key=lambda x: x[0])
+        used_det = set()
+        used_pred = set()
+        rescues = []
+        for dist, det_idx, pred_idx in candidates:
+            if det_idx in used_det or pred_idx in used_pred:
+                continue
+            rescues.append((det_idx, pred_idx, dist))
+            used_det.add(det_idx)
+            used_pred.add(pred_idx)
+
+        return rescues
 
 
 
@@ -578,6 +729,20 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         assigned_det_indices = np.array(assigned_det_indices, dtype=int)
         assigned_pred_indices = np.array(assigned_pred_indices, dtype=int)
 
+        rescues = self.rescue_missing_assignments(
+            detections,
+            predictions,
+            assigned_det_indices,
+            assigned_pred_indices,
+            max_interframe_travel_distance,
+            self.missing_jump_scale,
+        )
+        if rescues:
+            for det_idx, pred_idx, _dist in rescues:
+                assignments.append((det_idx, pred_idx))
+            assigned_det_indices = np.array([a[0] for a in assignments], dtype=int)
+            assigned_pred_indices = np.array([a[1] for a in assignments], dtype=int)
+
         # Extract associated detections
         associated_detections = np.zeros((len(assignments), 6))
         for i, (det_idx, pred_idx) in enumerate(assignments):
@@ -589,6 +754,29 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
         # Extract missing detections
         missing_detections = predictions[:, 0][np.setdiff1d(np.arange(len(predictions)), assigned_pred_indices)].tolist() if predictions.size > 0 else []
+
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            min_dists = []
+            if len(detections) > 0:
+                for i in range(len(predictions)):
+                    px, py = predictions[i, 1], predictions[i, 2]
+                    dists = np.hypot(detections[:, 0] - px, detections[:, 1] - py)
+                    min_dists.append(float(np.min(dists)))
+            else:
+                min_dists = [None for _ in range(len(predictions))]
+            missing_debug = []
+            for idx in np.setdiff1d(np.arange(len(predictions)), assigned_pred_indices):
+                missing_debug.append({
+                    "id": int(predictions[idx, 0]),
+                    "min_dist": min_dists[idx],
+                })
+            LOGGER.debug({
+                "min_pred_to_det_dist": min_dists,
+                "cost_threshold": max_interframe_travel_distance,
+                "rescue_threshold": max_interframe_travel_distance * self.missing_jump_scale,
+                "rescued_pairs": [(int(predictions[p[1], 0]), float(p[2])) for p in rescues] if rescues else [],
+                "missing_after_rescue": missing_debug,
+            })
 
         # Debug Logging (Ensure all logged data is NumPy arrays)
         LOGGER.debug({
@@ -753,6 +941,3 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         })
 
         return iou
-
-
-

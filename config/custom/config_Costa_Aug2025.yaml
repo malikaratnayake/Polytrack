@@ -49,11 +49,13 @@ insect_tracking:
   iou_threshold: 0                     # IoU threshold for validating insect detections.
   max_occlusions: 300                  # Maximum frames an insect can remain occluded and still be tracked.
   max_occlusions_on_flower: 300        # Maximum frames a flower can remain occluded.
+  missing_jump_scale: 1.5              # Multiplier for relaxed association on missing tracks.
   jump_distance:                       # Maximum distance (in pixels) insects can move between frames.
     - 200                              # Maximum horizontal jump distance allowed with AI detection.
     - 200                               # Maximum vertical jump distance allowed with foreground detection. Default: 35
   min_track_length: 15                  # Minimum number of frames an insect must be tracked to be considered valid.
   compressed_video_time_jump: 100      # Time jump after which edge insects are re-evaluated in compressed videos.
+  save_only_dl_verified: False        # Only save tracks that have been verified by DL.
   edge_analysis:                # Analysis of insect behavior near the frame edges.
     edge_pixels: 40                    # Number of pixels near the frame edges considered as border cases.
     max_edge_occlusions: 32              # Maximum occlusion frames near the edge of the frame.
@@ -84,13 +86,15 @@ insect_tracking:
 
     fgbg_detection:
       model: 
-      - 'FrameDifference'                             # Calculate the difference between consecutive frames.
-      # - 'MOG2'                                        # Gaussian Mixture-based Background/Foreground Segmentation.
+      - 'MOG2'                                        # Gaussian Mixture-based Background/Foreground Segmentation.
+      # - 'FrameDifference'                             # Calculate the difference between consecutive frames.
       downscale_factor: 1                             # Scaling factor for downsampling frames during preprocessing.
-      dilate_kernel_size: 8                           # Kernel size for dilation operation during blob detection. (Default: 8)
-      movement_threshold: 120                          # Intensity threshold for detecting motion. (Default: 120)
+      dilate_kernel_size: 4                           # Kernel size for dilation operation during blob detection. (Default: 8)
+      movement_threshold: 80                          # Intensity threshold for detecting motion. (Default: 120)
       show: True                                     # Display the output of the foreground detection model.
-      clean_detections: True                          # Compare detections made in adjacent frames to remove duplicates.
+      clean_detections: False                         # Compare detections made in adjacent frames to remove duplicates.
+      clean_distance_thresh: 3.0
+      clean_area_ratio_thresh: 0.25
 
   spatial_filtering:
     use_include_zone: False                          # Enable/disable spatial filtering.
