@@ -13,13 +13,15 @@ class DL_Flower_Detector():
                 flower_iou_threshold: float,
                 flower_detection_confidence: float,
                 flower_classes: np.ndarray,
-                device: str) -> None:
+                device: str,
+                use_fp16: bool) -> None:
         self.device = device
         self.flower_detector = YOLO(flower_detector)
         self.flower_detector.to(self.device)
         self.flower_iou_threshold = flower_iou_threshold
         self.flower_detection_confidence = flower_detection_confidence
         self.flower_classes = flower_classes
+        self.use_fp16 = bool(use_fp16) and str(self.device).startswith("cuda")
 
         return None
     
@@ -127,6 +129,7 @@ class DL_Flower_Detector():
                                                 verbose = False, 
                                                 iou = self.flower_iou_threshold, 
                                                 classes = self.flower_classes,
+                                                half=self.use_fp16,
                                                 device=self.device)
         
         detections = self._decode_flower_detections(results)
@@ -149,7 +152,8 @@ class FlowerTracker(DL_Flower_Detector, TrackingMethods):
                              flower_iou_threshold = config.detector_properties.iou_threshold,
                              flower_detection_confidence = config.detector_properties.detection_confidence,
                              flower_classes = config.classes,
-                             device=device)
+                             device=device,
+                             use_fp16 = getattr(config.detector_properties, "use_fp16", False))
         
         self.flower_predictions = []
         

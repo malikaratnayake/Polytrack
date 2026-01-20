@@ -231,6 +231,11 @@ def main(directory_config: Config):
             LOGGER.info("Using CPU (no GPU available)")
     else:
         LOGGER.info("Using CPU (torch not available)")
+
+    device_override = getattr(SOURCE_CONFIG, "device", None)
+    if device_override and str(device_override).lower() != "auto":
+        device = str(device_override)
+        LOGGER.info(f"Using device override: {device}")
     
     # Create a copy of the config file in the output directory
     #     Save the updated configurations back to the YAML file
