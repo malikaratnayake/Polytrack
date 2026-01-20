@@ -1,3 +1,4 @@
+import csv
 import cv2
 import numpy as np
 import os
@@ -288,6 +289,20 @@ class VideoWriter:
                 return True
         return False
 
+    def _flower_id_at_position(self, x0: int, y0: int) -> int | None:
+        if len(self.latest_flower_positions) == 0:
+            return None
+        for flower in self.latest_flower_positions:
+            cx = int(flower[1])
+            cy = int(flower[2])
+            radius = int(flower[3])
+            expanded_radius = int(round(radius * self.flower_border))
+            dx = x0 - cx
+            dy = y0 - cy
+            if (dx * dx + dy * dy) <= (expanded_radius * expanded_radius):
+                return int(flower[0])
+        return None
+
     def _reset_trajectory_frame(self) -> np.ndarray:
         frame = np.zeros((self.height, self.width, 3), np.uint8)
         frame = self.mark_boundary_edges(frame, self.edge_pixels)
@@ -388,9 +403,99 @@ class Recorder(VideoWriter):
         self.saved_verified_track_ids = set()
         self.save_insect_snapshots = getattr(output_config, "save_insect_snapshots", True)
         self.missing_counts = {}
+        self.low_confidence_hits = {}
    
 
         return None
+
+    def plot_track_summary(self) -> None:
+        video_name = Path(self.video_source).stem if self.video_source else Path(self.output_directory).name
+        info_path = os.path.join(self.output_directory, f"{video_name}_verification_Info.csv")
+        if not os.path.exists(info_path):
+            LOGGER.info("Verification info not found; skipping track plot.")
+            return
+        if self.width <= 0 or self.height <= 0:
+            LOGGER.info("Invalid video dimensions; skipping track plot.")
+            return
+
+        verified_files = set()
+        with open(info_path, "r", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("verification") == "True":
+                    filename = row.get("filename")
+                    if filename:
+                        verified_files.add(filename)
+
+        if not verified_files:
+            LOGGER.info("No verified tracks found; skipping track plot.")
+            return
+
+        aspect_ratio = self.width / self.height if self.height else 1.0
+        fig_height = 6.0
+        fig_width = max(6.0, fig_height * aspect_ratio)
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+        for filename in verified_files:
+            track_path = os.path.join(self.output_directory, filename)
+            if not os.path.exists(track_path):
+                continue
+            insect_num = Path(filename).stem.split("_")[-1]
+            xs = []
+            ys = []
+            with open(track_path, "r", newline="") as f:
+                reader = csv.reader(f)
+                next(reader, None)
+                for row in reader:
+                    if len(row) < 3:
+                        continue
+                    x_val = row[1]
+                    y_val = row[2]
+                    if x_val == "" or y_val == "":
+                        continue
+                    try:
+                        xs.append(float(x_val))
+                        ys.append(float(y_val))
+                    except ValueError:
+                        continue
+            if xs and ys:
+                ax.plot(xs, ys, linewidth=1.0, alpha=0.7)
+                ax.scatter(xs, ys, s=8, alpha=0.6)
+                ax.annotate(insect_num, (xs[-1], ys[-1]), textcoords="offset points", xytext=(4, -4), fontsize=8)
+
+        flower_positions_path = os.path.join(
+            self.output_directory,
+            os.path.basename(self.output_directory) + "_flower_positions.csv",
+        )
+        flower_border = getattr(self, "flower_border", 1.0)
+        if os.path.exists(flower_positions_path):
+            with open(flower_positions_path, "r", newline="") as f:
+                reader = csv.reader(f)
+                next(reader, None)
+                for row in reader:
+                    if len(row) < 5:
+                        continue
+                    try:
+                        cx = float(row[2])
+                        cy = float(row[3])
+                        radius = float(row[4]) * float(flower_border)
+                    except ValueError:
+                        continue
+                    circle = plt.Circle((cx, cy), radius, fill=False, edgecolor="orange", linewidth=1.5)
+                    ax.add_patch(circle)
+
+        ax.set_xlim(0, self.width)
+        ax.set_ylim(0, self.height)
+        ax.set_aspect("equal", adjustable="box")
+        ax.invert_yaxis()
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_title(f"{video_name} verified tracks")
+
+        output_path = os.path.join(self.output_directory, f"{video_name}-track_plot.jpg")
+        fig.savefig(output_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        LOGGER.info(f"Track plot saved: {output_path}")
 
     
     def record_track(self,
@@ -401,7 +506,8 @@ class Recorder(VideoWriter):
                      dl_associated_detections: np.ndarray, 
                      missing_insects:np.ndarray, 
                      new_insects: np.ndarray,
-                     new_insects_fgbg: np.ndarray) -> np.ndarray:
+                     new_insects_fgbg: np.ndarray,
+                     low_conf_associated_detections: np.ndarray) -> np.ndarray:
         
         self.active_tracks = []
         self.missing_tracks = []
@@ -414,6 +520,7 @@ class Recorder(VideoWriter):
         
         self.record_FGBG_detections(mapped_frame_num, fgbg_associated_detections)
         self.record_DL_detections(mapped_frame_num, dl_associated_detections)
+        self.record_low_confidence_detections(low_conf_associated_detections)
         self.record_missing(mapped_frame_num, missing_insects)
         new_insect_detections = self.record_new_insect(frame, nframe, mapped_frame_num, new_insects, source="dl")
         new_insect_detections_fgbg = self.record_new_insect(frame, nframe, mapped_frame_num, new_insects_fgbg, source="fgbg")
@@ -453,7 +560,7 @@ class Recorder(VideoWriter):
             _insect_num = int((detection[0]))
             _x = int((detection[1]))
             _y = int((detection[2]))
-            _flower = None
+            _flower = self._flower_id_at_position(_x, _y)
             insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
 
 
@@ -514,6 +621,7 @@ class Recorder(VideoWriter):
             if self.track_sources.get(_insect_num) == "fgbg" and _insect_num not in self.dl_confirmed_tracks:
                 self.insect_tracks[insect_position][2] = self.tracking_insects[_species]
                 self.dl_confirmed_tracks.add(_insect_num)
+                self.low_confidence_hits.pop(_insect_num, None)
                 self.rebuild_trajectory = True
                 LOGGER.info(f'{_insect_num} track verified')
 
@@ -533,6 +641,23 @@ class Recorder(VideoWriter):
             self.insect_tracks[insect_position][3].append(insect_record)
             self.active_tracks.append(_insect_num)
             self.missing_counts[_insect_num] = 0
+
+        return None
+
+    def record_low_confidence_detections(self, 
+                                         low_conf_associated_detections: np.ndarray) -> None:
+        if low_conf_associated_detections is None or len(low_conf_associated_detections) == 0:
+            return
+        for detection in low_conf_associated_detections:
+            _insect_num = int(detection[0])
+            if _insect_num in self.dl_confirmed_tracks:
+                continue
+            conf = float(detection[5]) if len(detection) > 5 and detection[5] is not None else None
+            if conf is None:
+                continue
+            current = self.low_confidence_hits.get(_insect_num)
+            if current is None or conf > current:
+                self.low_confidence_hits[_insect_num] = conf
 
         return None
     
@@ -773,7 +898,10 @@ class Recorder(VideoWriter):
 
             LOGGER.info(f'Completed tracking {insect_species}_{insect_num}. Insect track saved: {filename}')
             verified = track_id in self.dl_confirmed_tracks
-            max_conf = self._max_dl_confidence(insect_track) if verified else None
+            if verified:
+                max_conf = self._max_dl_confidence(insect_track)
+            else:
+                max_conf = self.low_confidence_hits.get(track_id)
             track_length, detected_frames, distance, displacement = self._track_metrics(insect_track)
             self._append_verification_info(
                 os.path.basename(output_filepath),

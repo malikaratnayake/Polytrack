@@ -70,6 +70,8 @@ insect_tracking:
       model: "/Users/mrat0010/Documents/Costa_Data/Detection_Models/insects-v2-l.pt"  # Path to the primary detection model.
       detection_confidence:
        - 0.2                                          # Minimum confidence score for valid detections. (0.2 works okay)
+      detection_confidence_floor:
+       - 0.01                                         # Inference floor; detections below detection_confidence are filtered out.
       iou_threshold: 0                                # IoU threshold for validation.
       image_size:                                     # Size of the input image for the primary detection model.
         - 1024                                         # Width of the input image in pixels.   
@@ -126,7 +128,7 @@ flower_tracking:
   classes:                                            # Class IDs corresponding to flower classes.
     - 0
   detection_interval: 3000                             # Number of frames between flower detection updates.
-  border_extension: 2                              # Scale factor to extend boundaries for detected flowers.
+  border_extension: 2.5                              # Scale factor to extend boundaries for detected flowers.
   prediction_method: "ConstantVelocity"               # Algorithm for predicting flower movement.
 
   # Detector Properties for Flower Tracking

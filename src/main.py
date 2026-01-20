@@ -109,8 +109,8 @@ class TracknRecord():
                         flush=True,
                     )
                     unverified_track_ids = self.RecordTracks.get_unverified_track_ids()
-                    fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg = self.TrackInsects.run_tracker(frame, nframe, predicted_position, unverified_track_ids)
-                    for_predictions, current_insect_positions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num, fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg)
+                    fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg, low_conf_associated_detections = self.TrackInsects.run_tracker(frame, nframe, predicted_position, unverified_track_ids)
+                    for_predictions, current_insect_positions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num, fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg, low_conf_associated_detections)
                     predicted_position = self.TrackInsects.predict_next(for_predictions)
 
 
@@ -130,6 +130,7 @@ class TracknRecord():
                     self.RecordTracks.save_inprogress_tracks(predicted_position)
                     if self.RecordFlowers is not None:
                         self.RecordFlowers.save_flower_tracks()
+                    self.RecordTracks.plot_track_summary()
                     break
 
             else:
@@ -145,6 +146,7 @@ class TracknRecord():
                 LOGGER.info("Finished processing video. Exiting...")
                 self.RecordTracks.save_inprogress_tracks(predicted_position)
                 if self.RecordFlowers is not None: self.RecordFlowers.save_flower_tracks()
+                self.RecordTracks.plot_track_summary()
                 
                 break
 
