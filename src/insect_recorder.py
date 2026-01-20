@@ -25,7 +25,10 @@ class VideoWriter:
                  tracking_insects: list,
                  edge_pixels: int,
                  video_codec: str,
-                 spatial_filtering) -> None:
+                 spatial_filtering,
+                 flower_display_shape: str = "Circle",
+                 show_flower_border_extension: bool = True,
+                 mark_insects_on_flower: bool = True) -> None:
         
         self.width, self.height, self.fps = input_video_dimensions[0], input_video_dimensions[1], framerate
         self.show_video_output = show_video_output 
@@ -40,6 +43,9 @@ class VideoWriter:
         self.latest_flower_positions = []
         self.updated_flower_positions_recorded = True
         self.rebuild_trajectory = False
+        self.flower_display_shape = flower_display_shape
+        self.show_flower_border_extension = show_flower_border_extension
+        self.mark_insects_on_flower = mark_insects_on_flower
 
         if self.save_video_output or self.show_video_output:
             self.trajectory_frame = np.zeros((input_video_dimensions[1],input_video_dimensions[0],3), np.uint8)
@@ -157,8 +163,7 @@ class VideoWriter:
                     _center_y = int(flower[2])
                     _radius = int(flower[3])
                     _expanded_radius = int(round(_radius * self.flower_border))
-                    cv2.circle(self.trajectory_frame, (_center_x, _center_y), _expanded_radius, (0, 0, 255), 4)
-                    cv2.circle(self.trajectory_frame, (_center_x, _center_y), _radius, (0, 255, 255), 2)
+                    self._shade_flower_area((_center_x, _center_y), _radius, _expanded_radius)
                     cv2.putText(self.trajectory_frame, 'F' + str(_flower_num), (_center_x + _expanded_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
                 self.updated_flower_positions_recorded = True
         except Exception as e:
@@ -173,6 +178,9 @@ class VideoWriter:
 
             if _x0 is not None:
                 cv2.circle(self.trajectory_frame, (int(_x0), int(_y0)), 3, colour, 4)
+                if self.mark_insects_on_flower and len(self.latest_flower_positions) > 0:
+                    if self._in_flower_radius(int(_x0), int(_y0)):
+                        self._draw_plus((int(_x0), int(_y0)), (255, 255, 255), 2)
 
             if _x0 is not None and _x1 is not None:
                 cv2.line(self.trajectory_frame, (int(_x1),int(_y1)),(int(_x0),int(_y0)),colour,2)
@@ -229,6 +237,57 @@ class VideoWriter:
         cv2.line(self.trajectory_frame, (_x - size, _y - size), (_x + size, _y + size), colour, thickness)
         cv2.line(self.trajectory_frame, (_x - size, _y + size), (_x + size, _y - size), colour, thickness)
 
+    def _draw_plus(self, center: tuple[int, int], colour: tuple[int, int, int], thickness: int) -> None:
+        _x, _y = center
+        size = 6
+        cv2.line(self.trajectory_frame, (_x - size, _y), (_x + size, _y), colour, thickness)
+        cv2.line(self.trajectory_frame, (_x, _y - size), (_x, _y + size), colour, thickness)
+
+    def _shade_flower_area(self, center: tuple[int, int], radius: int, expanded_radius: int) -> None:
+        overlay = self.trajectory_frame.copy()
+        shape = str(self.flower_display_shape).lower()
+        if shape == "box":
+            r = expanded_radius if self.show_flower_border_extension else radius
+            x1 = int(center[0] - r)
+            y1 = int(center[1] - r)
+            x2 = int(center[0] + r)
+            y2 = int(center[1] + r)
+            cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 220, 255), -1)
+        else:
+            cv2.circle(overlay, center, radius, (0, 220, 255), -1)
+        self.trajectory_frame = cv2.addWeighted(overlay, 0.3, self.trajectory_frame, 0.7, 0)
+        if shape != "box" and self.show_flower_border_extension:
+            self._draw_dotted_circle(center, expanded_radius, (0, 220, 255), 2)
+
+    def _draw_dotted_circle(
+        self,
+        center: tuple[int, int],
+        radius: int,
+        colour: tuple[int, int, int],
+        thickness: int,
+        step_degrees: int = 12,
+    ) -> None:
+        if radius <= 0:
+            return
+        cx, cy = center
+        for angle in range(0, 360, step_degrees):
+            rad = math.radians(angle)
+            x = int(round(cx + radius * math.cos(rad)))
+            y = int(round(cy + radius * math.sin(rad)))
+            cv2.circle(self.trajectory_frame, (x, y), thickness, colour, -1)
+
+    def _in_flower_radius(self, x0: int, y0: int) -> bool:
+        for flower in self.latest_flower_positions:
+            cx = int(flower[1])
+            cy = int(flower[2])
+            radius = int(flower[3])
+            expanded_radius = int(round(radius * self.flower_border))
+            dx = x0 - cx
+            dy = y0 - cy
+            if (dx * dx + dy * dy) <= (expanded_radius * expanded_radius):
+                return True
+        return False
+
     def _reset_trajectory_frame(self) -> np.ndarray:
         frame = np.zeros((self.height, self.width, 3), np.uint8)
         frame = self.mark_boundary_edges(frame, self.edge_pixels)
@@ -247,8 +306,7 @@ class VideoWriter:
             _center_y = int(flower[2])
             _radius = int(flower[3])
             _expanded_radius = int(round(_radius * self.flower_border))
-            cv2.circle(self.trajectory_frame, (_center_x, _center_y), _expanded_radius, (0, 0, 255), 4)
-            cv2.circle(self.trajectory_frame, (_center_x, _center_y), _radius, (0, 255, 255), 2)
+            self._shade_flower_area((_center_x, _center_y), _radius, _expanded_radius)
             cv2.putText(self.trajectory_frame, 'F' + str(_flower_num), (_center_x + _expanded_radius, _center_y), cv2.FONT_HERSHEY_DUPLEX , 0.7, (0,255,255), 1, cv2.LINE_AA)
 
     def _redraw_insect_tracks(self) -> None:
@@ -282,9 +340,13 @@ class Recorder(VideoWriter):
                  output_config: dict,
                  insect_config: dict,
                  source_config: dict,
+                 flower_config: dict,
                  video_resolution: list[int],
                  framerate: int,
                  directory_config: dict) -> None:
+        flower_display_shape = getattr(flower_config, "output_shape", "Circle") if flower_config is not None else "Circle"
+        show_flower_border_extension = getattr(flower_config, "show_border_extension", True) if flower_config is not None else True
+        mark_insects_on_flower = getattr(flower_config, "mark_insects_on_flower", True) if flower_config is not None else True
         
         VideoWriter.__init__(self,
                             input_video_dimensions = video_resolution,
@@ -297,7 +359,10 @@ class Recorder(VideoWriter):
                             save_video_output = output_config.save,
                             edge_pixels = insect_config.edge_analysis.edge_pixels,
                             video_codec = output_config.codec,
-                            spatial_filtering = insect_config.spatial_filtering) 
+                            spatial_filtering = insect_config.spatial_filtering,
+                            flower_display_shape = flower_display_shape,
+                            show_flower_border_extension = show_flower_border_extension,
+                            mark_insects_on_flower = mark_insects_on_flower) 
         
         self.insect_tracks = []
         self.edge_pixels = insect_config.edge_analysis.edge_pixels

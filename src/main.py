@@ -159,10 +159,23 @@ def get_video_properties(video_source):
         LOGGER.error(f"Error opening video source: {video_source}")
         return None, None
 
+    ret, frame = cap.read()
+    if not ret or frame is None:
+        LOGGER.error(f"Couldn't read video stream from file \"{video_source}\"")
+        cap.release()
+        return None, None
+
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     framerate = int(cap.get(cv2.CAP_PROP_FPS))
     cap.release()
+
+    if width <= 0 or height <= 0:
+        height, width = frame.shape[:2]
+
+    if width <= 0 or height <= 0 or framerate <= 0:
+        LOGGER.error(f"Invalid video properties for {video_source}: {width}x{height} @ {framerate} FPS")
+        return None, None
 
     LOGGER.info(f"Video resolution: {width}x{height}")
     LOGGER.info(f"Video framerate: {framerate}")
@@ -235,6 +248,9 @@ def main(directory_config: Config):
     directory_config.output = output_directory
 
     video_resolution, framerate = get_video_properties(directory_config.source)
+    if video_resolution is None or framerate is None:
+        LOGGER.error(f"Skipping video due to unreadable/corrupt source: {directory_config.source}")
+        return 0
     
     # Create all of our threads
     track_insects = InsectTracker(
@@ -248,6 +264,7 @@ def main(directory_config: Config):
         output_config=OUTPUT_CONFIG,
         insect_config=INSECT_CONFIG,
         source_config=SOURCE_CONFIG,
+        flower_config=FLOWER_CONFIG,
         video_resolution = video_resolution,
         framerate = framerate,
         directory_config=directory_config)
@@ -259,7 +276,8 @@ def main(directory_config: Config):
         
         record_flowers = FlowerRecorder(
             config = FLOWER_CONFIG,
-            directory_config = directory_config)
+            directory_config = directory_config,
+            video_resolution = video_resolution)
     
     track_and_record = TracknRecord(
         video_source = directory_config.source,
