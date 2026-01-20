@@ -224,7 +224,7 @@ class VideoWriter:
     
         if(_colour_code ==0): _colour = (255,0,0)
         elif(_colour_code ==1): _colour = (0,255,0)
-        elif(_colour_code ==2): _colour = (0,0,255)
+        elif(_colour_code ==2): _colour = (255,165,0)
         elif(_colour_code ==3): _colour = (0,255,255)
         elif(_colour_code ==4): _colour = (255,0,255)
         else: _colour = (255,255,0)
