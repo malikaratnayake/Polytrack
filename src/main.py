@@ -64,7 +64,9 @@ class TracknRecord():
                  compressed_video: bool,
                  info_filename: str,
                  skip_frames: bool,
-                 flower_detection_interval:int) -> None:
+                 flower_detection_interval:int,
+                 video_index: int | None = None,
+                 total_videos: int | None = None) -> None:
         
         self.video_source = video_source
         self.RecordTracks = RecordTracks
@@ -75,6 +77,8 @@ class TracknRecord():
         self.info_filename = info_filename
         self.flower_detection_interval = flower_detection_interval
         self.skip_frames = skip_frames
+        self.video_index = video_index
+        self.total_videos = total_videos
         self.vid = cv2.VideoCapture(self.video_source)
         self.total_frames = int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT)) if self.vid is not None else 0
         LOGGER.info(f"Processing video: {self.video_source}")        
@@ -86,6 +90,10 @@ class TracknRecord():
         nframe = 0
         predicted_position = []
         flower_predictions = []
+        start_time = time.time()
+        processed_frames = 0
+        bar_len = 30
+        video_progress = ""
         while True:
             _, frame = self.vid.read()
 
@@ -94,14 +102,19 @@ class TracknRecord():
                 if not self.skip_frames or (self.skip_frames and nframe % 2 != 0):
                     
                     mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
+                    processed_frames = mapped_frame_num
                     tracking_count, verified_count, saved_count, saved_verified = self.RecordTracks.get_tracking_stats()
                     flower_count = len(self.RecordTracks.latest_flower_positions) if hasattr(self.RecordTracks, "latest_flower_positions") else 0
                     if self.total_frames > 0:
+                        progress_ratio = min(1.0, mapped_frame_num / self.total_frames)
+                        filled = int(bar_len * progress_ratio)
+                        bar = f"[{'#' * filled}{'-' * (bar_len - filled)}] {progress_ratio * 100:5.1f}%"
                         progress = f"{mapped_frame_num}/{self.total_frames}"
                     else:
+                        bar = "[------------------------------]  ---.-%"
                         progress = f"{mapped_frame_num}"
                     print(
-                        f"\r{Path(self.video_source).name} | {progress} frames processed | "
+                        f"\r{Path(self.video_source).name} {bar} | {progress} frames processed | "
                         f"{tracking_count} active tracks ({verified_count} verified) | "
                         f"{saved_count} saved tracks ({saved_verified} verified) | "
                         f"{flower_count} flowers recorded",
@@ -135,14 +148,20 @@ class TracknRecord():
 
             else:
                 print()
+                duration_seconds = max(0.0, time.time() - start_time)
+                fps = (processed_frames / duration_seconds) if duration_seconds > 0 else 0.0
                 tracking_count, verified_count, saved_count, saved_verified = self.RecordTracks.get_tracking_stats()
                 flower_count = len(self.RecordTracks.latest_flower_positions) if hasattr(self.RecordTracks, "latest_flower_positions") else 0
                 print(
                     f"Tracking finished for {Path(self.video_source).name} | "
-                    f"{mapped_frame_num} frames processed | "
+                    f"{processed_frames} frames processed | "
                     f"{saved_count} tracks saved ({saved_verified} verified) | "
                     f"{flower_count} flowers recorded"
                 )
+                if self.video_index is not None and self.total_videos is not None:
+                    print(f"Processing time: {duration_seconds:.2f}s | Processing FPS: {fps:.2f} | Completed {self.video_index}/{self.total_videos} videos.")
+                else:
+                    print(f"Processing time: {duration_seconds:.2f}s | Processing FPS: {fps:.2f}")
                 LOGGER.info("Finished processing video. Exiting...")
                 self.RecordTracks.save_inprogress_tracks(predicted_position)
                 if self.RecordFlowers is not None: self.RecordFlowers.save_flower_tracks()
@@ -185,7 +204,7 @@ def get_video_properties(video_source):
     return (width, height), framerate
 
 
-def main(directory_config: Config):
+def main(directory_config: Config, video_index: int | None = None, total_videos: int | None = None):
 
     start = time.time()
 
@@ -295,7 +314,9 @@ def main(directory_config: Config):
         flower_detection_interval = FLOWER_CONFIG.detection_interval if FLOWER_CONFIG.track else None,
         compressed_video = SOURCE_CONFIG.compressed_video,
         info_filename = SOURCE_CONFIG.compression_info,
-        skip_frames = SOURCE_CONFIG.skip_frames)
+        skip_frames = SOURCE_CONFIG.skip_frames,
+        video_index = video_index,
+        total_videos = total_videos)
     
     
     # Run the TracknRecord instance
@@ -355,14 +376,13 @@ if __name__ == "__main__":
         video_source = [str(video_source)]
 
 
-    parameter_combos = product(
-        video_source
-    )
+    parameter_combos = list(product(video_source))
     parameter_keys = [
         "video_source"
     ]
 
-    for combo in parameter_combos:
+    total_videos = len(parameter_combos)
+    for video_index, combo in enumerate(parameter_combos, start=1):
         # Create a copy of the original CONFIG
         this_config_dict = DIRECTORY_CONFIG.to_dict()
         
@@ -373,4 +393,4 @@ if __name__ == "__main__":
         this_config = Config(this_config_dict)
 
         # Pass this_config to the main function
-        main(this_config)
+        main(this_config, video_index=video_index, total_videos=total_videos)
