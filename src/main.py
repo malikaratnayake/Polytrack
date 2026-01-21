@@ -241,11 +241,20 @@ def main(directory_config: Config, video_index: int | None = None, total_videos:
     if torch_spec is not None:
         import torch
         if torch.cuda.is_available():
+            gpu_count = torch.cuda.device_count()
+            gpu_names = [torch.cuda.get_device_name(i) for i in range(gpu_count)]
+            LOGGER.info(f"Available CUDA GPUs: {gpu_count} | {gpu_names}")
             device = "cuda:0"
             LOGGER.info(f"Using GPU: {torch.cuda.get_device_name(0)}")
+            print(f"Using GPU: {torch.cuda.get_device_name(0)}")
+            torch.backends.cudnn.benchmark = True
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
         elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             device = "mps"
-            LOGGER.info("Using GPU: Apple MPS")
+            LOGGER.info("Available GPU: Apple MPS")
+            if hasattr(torch, "set_float32_matmul_precision"):
+                torch.set_float32_matmul_precision("high")
         else:
             LOGGER.info("Using CPU (no GPU available)")
     else:

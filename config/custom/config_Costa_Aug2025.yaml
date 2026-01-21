@@ -1,6 +1,6 @@
 # Directories for Input and Output Data
 directories:
-  source: "/Users/mrat0010/Documents/Costa_Data/AGRICAM_2_20250729-Raw/"    # Path to the directory containing input videos.
+  source: "/Volumes/MalikaSSD/WhiteCloud-Oct2025/Trial_1/AGC2/AGC2_251004/AGC2_251004-S/"    # Path to the directory containing input videos.
   output: "/Users/mrat0010/Documents/Costa_Data/Output1/"   # Path to save the processed output videos.
 
 # Configuration for Input Video Properties

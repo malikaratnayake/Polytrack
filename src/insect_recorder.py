@@ -148,6 +148,8 @@ class VideoWriter:
                             new_insect_detections: np.ndarray, 
                             detections_for_predictions: np.ndarray,
                             dl_associated_detections: np.ndarray):
+        if not (self.show_video_output or self.save_video_output):
+            return None
         if self.rebuild_trajectory:
             self.trajectory_frame = self._reset_trajectory_frame()
             self._redraw_flower_positions()
