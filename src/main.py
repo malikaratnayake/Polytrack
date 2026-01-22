@@ -2,6 +2,7 @@ import os
 import logging
 import time
 import yaml
+import shutil
 from datetime import datetime
 from pathlib import Path
 from itertools import product
@@ -204,7 +205,13 @@ def get_video_properties(video_source):
     return (width, height), framerate
 
 
-def main(directory_config: Config, video_index: int | None = None, total_videos: int | None = None):
+def main(
+    directory_config: Config,
+    video_index: int | None = None,
+    total_videos: int | None = None,
+    override_output: bool = False,
+    skip_existing: bool = False,
+):
 
     start = time.time()
 
@@ -231,7 +238,24 @@ def main(directory_config: Config, video_index: int | None = None, total_videos:
 
     output_directory = Path(f"{output_parent_directory}/{output_filename}")
     # output_directory = Path(f"out/{output_filename}")
-    if not output_directory.exists():
+    if output_directory.exists():
+        if override_output:
+            shutil.rmtree(output_directory)
+            output_directory.mkdir()
+        elif skip_existing:
+            LOGGER.info(f"Skipping {output_filename} (output directory exists).")
+            return 0
+        else:
+            response = input(
+                f"Output directory exists for {output_filename}. Override? [y/N]: "
+            ).strip().lower()
+            if response in ("y", "yes"):
+                shutil.rmtree(output_directory)
+                output_directory.mkdir()
+            else:
+                LOGGER.info(f"Skipping {output_filename} (output directory exists).")
+                return 0
+    else:
         output_directory.mkdir()
 
     EventLogger(output_directory, getattr(OUTPUT_CONFIG, "log_level", "INFO"))
@@ -358,9 +382,15 @@ if __name__ == "__main__":
                                  description='Polytrack is design to track unmarked freely foraging insects in outdoor environments and monitor their pollination behaviour.')
     ap.add_argument("--config", nargs='?', dest='custom_config', default=default_config_directory,
                 help="Please Enter the directory of custom config.yaml file", type=str)
+    ap.add_argument("--override-output", action="store_true", default=False,
+                help="Override existing output directories without prompting.")
+    ap.add_argument("--skip-existing", action="store_true", default=False,
+                help="Skip videos with existing output directories without prompting.")
     
     args = ap.parse_args()
     config_directory = args.custom_config
+    override_output = args.override_output
+    skip_existing = args.skip_existing
 
     EventLogger.temp_log('info',f"Using config file: {config_directory}")
 
@@ -378,11 +408,16 @@ if __name__ == "__main__":
     
     video_source = DIRECTORY_CONFIG.source
     
-    video_source = Path(video_source)
-    if video_source.is_dir():
-        video_source = [str(v) for v in video_source.iterdir() if v.suffix in ['.avi', '.mp4', '.h264', '.MTS']]
+    source_path = Path(video_source)
+    if source_path.is_dir():
+        video_source = [str(v) for v in source_path.iterdir() if v.suffix in ['.avi', '.mp4', '.h264', '.MTS']]
+        if not video_source:
+            video_source = [str(v) for v in source_path.rglob("*") if v.suffix in ['.avi', '.mp4', '.h264', '.MTS']]
+        if not video_source:
+            EventLogger.temp_log('info', f"No compatible videos found in {source_path} or its subdirectories.")
+            raise SystemExit(0)
     elif type(video_source) is not list:
-        video_source = [str(video_source)]
+        video_source = [str(source_path)]
 
 
     parameter_combos = list(product(video_source))
@@ -402,4 +437,10 @@ if __name__ == "__main__":
         this_config = Config(this_config_dict)
 
         # Pass this_config to the main function
-        main(this_config, video_index=video_index, total_videos=total_videos)
+        main(
+            this_config,
+            video_index=video_index,
+            total_videos=total_videos,
+            override_output=override_output,
+            skip_existing=skip_existing,
+        )

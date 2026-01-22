@@ -17,7 +17,7 @@ output:
     - 1920                             # Width of the output video in pixels.
     - 1080                             # Height of the output video in pixels.
   codec: "mp4v"                        # Codec used for compressing the output video.
-  show: True                          # Whether to display the video output during processing.
+  show: False                          # Whether to display the video output during processing.
   save: True                           # Whether to save the processed video output to a file.
   compressed_time_as_filename: False   # Use the time in the compressed video as filenames for insect detections..
   save_insect_snapshots: False          # Save per-insect snapshot images for manual verification.
