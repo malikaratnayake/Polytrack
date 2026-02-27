@@ -58,6 +58,7 @@ insect_tracking:
     - 50                              # Maximum horizontal jump distance allowed with AI detection.
     - 50                               # Maximum vertical jump distance allowed with foreground detection. Default: 35
   min_track_length: 10                  # Minimum number of frames an insect must be tracked to be considered valid.
+  record_yolo_bbox: True               # Save YOLO-format bbox (x_center, y_center, width, height normalized) to insect CSV.
   compressed_video_time_jump: 100      # Time jump after which edge insects are re-evaluated in compressed videos.
   edge_analysis:                # Analysis of insect behavior near the frame edges.
     edge_pixels: 40                    # Number of pixels near the frame edges considered as border cases.
@@ -102,6 +103,7 @@ insect_tracking:
       clean_detections: False                         # Compare detections made in adjacent frames to remove duplicates.
       clean_distance_thresh: 3.0
       clean_area_ratio_thresh: 0.25
+      max_fgbg_candidates: 500                        # Skip FGBG detections if candidate count exceeds this value.
 
   spatial_filtering:
     use_include_zone: False                          # Enable/disable spatial filtering.
@@ -138,4 +140,7 @@ flower_tracking:
     model: "/Users/mrat0010/Documents/Costa_Data/Detection_Models/flowers.pt"            # Path to the flower detection model.
     detection_confidence: 0.1                         # Minimum confidence score for valid detections.
     use_fp16: True                                    # Use FP16 inference on CUDA-capable GPUs.
+    image_size:                                       # Size of the input image for flower detection.
+      - 1024                                          # Width of the input image in pixels.
+      - 1024                                          # Height of the input image in pixels.
     iou_threshold: 0.95                                # IoU threshold for flower detection validation.

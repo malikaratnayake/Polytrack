@@ -222,8 +222,9 @@ def main(
 
     # Determine the output directory based on user input
 
-    if os.path.isdir(directory_config.output):
-        output_parent_directory = Path(directory_config.output, "Polytrack")
+    configured_output = str(directory_config.output).strip() if directory_config.output is not None else ""
+    if configured_output:
+        output_parent_directory = Path(configured_output, "Polytrack")
         EventLogger.temp_log('info',f"Outputting to {output_parent_directory}")
     else:
         output_parent_directory = Path(os.path.dirname(directory_config.source), "Polytrack")
@@ -382,6 +383,20 @@ if __name__ == "__main__":
                                  description='Polytrack is design to track unmarked freely foraging insects in outdoor environments and monitor their pollination behaviour.')
     ap.add_argument("--config", nargs='?', dest='custom_config', default=default_config_directory,
                 help="Please Enter the directory of custom config.yaml file", type=str)
+    ap.add_argument(
+        "--input-dir",
+        dest="input_dir",
+        type=str,
+        default=None,
+        help="Override directories.source from config with an input video file or directory.",
+    )
+    ap.add_argument(
+        "--output-dir",
+        dest="output_dir",
+        type=str,
+        default=None,
+        help="Override directories.output from config with an output parent directory.",
+    )
     ap.add_argument("--override-output", action="store_true", default=False,
                 help="Override existing output directories without prompting.")
     ap.add_argument("--skip-existing", action="store_true", default=False,
@@ -389,6 +404,8 @@ if __name__ == "__main__":
     
     args = ap.parse_args()
     config_directory = args.custom_config
+    input_dir = args.input_dir
+    output_dir = args.output_dir
     override_output = args.override_output
     skip_existing = args.skip_existing
 
@@ -404,6 +421,13 @@ if __name__ == "__main__":
     FLOWER_CONFIG = Config(yaml_config["flower_tracking"])
     OUTPUT_CONFIG = Config(yaml_config["output"])
     SOURCE_CONFIG = Config(yaml_config["source"])
+
+    if input_dir is not None:
+        DIRECTORY_CONFIG.source = input_dir
+        EventLogger.temp_log("info", f"Using input override: {input_dir}")
+    if output_dir is not None:
+        DIRECTORY_CONFIG.output = output_dir
+        EventLogger.temp_log("info", f"Using output override: {output_dir}")
     
     
     video_source = DIRECTORY_CONFIG.source

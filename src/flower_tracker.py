@@ -13,6 +13,7 @@ class DL_Flower_Detector():
                 flower_iou_threshold: float,
                 flower_detection_confidence: float,
                 flower_classes: np.ndarray,
+                flower_image_size: list | None,
                 device: str,
                 use_fp16: bool) -> None:
         self.device = device
@@ -21,6 +22,7 @@ class DL_Flower_Detector():
         self.flower_iou_threshold = flower_iou_threshold
         self.flower_detection_confidence = flower_detection_confidence
         self.flower_classes = flower_classes
+        self.flower_image_size = flower_image_size
         self.use_fp16 = bool(use_fp16) and str(self.device).startswith("cuda")
 
         return None
@@ -121,16 +123,21 @@ class DL_Flower_Detector():
 
     def run_flower_detector(self, 
                         frame: np.ndarray) -> np.ndarray:
-        
+        predict_kwargs = {
+            "source": frame,
+            "conf": self.flower_detection_confidence,
+            "show": False,
+            "verbose": False,
+            "iou": self.flower_iou_threshold,
+            "classes": self.flower_classes,
+            "half": self.use_fp16,
+            "device": self.device,
+        }
+        if self.flower_image_size and len(self.flower_image_size) >= 2:
+            # Config stores [width, height]; Ultralytics expects (height, width).
+            predict_kwargs["imgsz"] = (self.flower_image_size[1], self.flower_image_size[0])
 
-        results = self.flower_detector.predict(source=frame, 
-                                                conf=self.flower_detection_confidence, 
-                                                show=False, 
-                                                verbose = False, 
-                                                iou = self.flower_iou_threshold, 
-                                                classes = self.flower_classes,
-                                                half=self.use_fp16,
-                                                device=self.device)
+        results = self.flower_detector.predict(**predict_kwargs)
         
         detections = self._decode_flower_detections(results)
         processed_detections = self.__calculate_cog(detections)
@@ -152,6 +159,7 @@ class FlowerTracker(DL_Flower_Detector, TrackingMethods):
                              flower_iou_threshold = config.detector_properties.iou_threshold,
                              flower_detection_confidence = config.detector_properties.detection_confidence,
                              flower_classes = config.classes,
+                             flower_image_size = getattr(config.detector_properties, "image_size", None),
                              device=device,
                              use_fp16 = getattr(config.detector_properties, "use_fp16", False))
         

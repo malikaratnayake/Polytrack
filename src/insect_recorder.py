@@ -404,6 +404,8 @@ class Recorder(VideoWriter):
         self.saved_track_ids = set()
         self.saved_verified_track_ids = set()
         self.save_insect_snapshots = getattr(output_config, "save_insect_snapshots", True)
+        self.record_yolo_bbox = getattr(insect_config, "record_yolo_bbox", False)
+        self.insect_record_length = 11 if self.record_yolo_bbox else 7
         self.missing_counts = {}
         self.low_confidence_hits = {}
    
@@ -578,6 +580,8 @@ class Recorder(VideoWriter):
             _y = int((detection[2]))
             _flower = self._flower_id_at_position(_x, _y)
             _area = int(detection[3]) if len(detection) > 3 else None
+            box_w = float(detection[6]) if len(detection) > 6 else None
+            box_h = float(detection[7]) if len(detection) > 7 else None
             insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
 
 
@@ -590,7 +594,10 @@ class Recorder(VideoWriter):
                         continue
 
             recorded_info.append([_insect_num, _x, _y,])
+            yolo_x, yolo_y, yolo_w, yolo_h = self._yolo_bbox_from_detection(_x, _y, box_w, box_h)
             insect_record = [mapped_frame_num, _x, _y, _flower, _area, "fgbg", None]
+            if self.record_yolo_bbox:
+                insect_record.extend([yolo_x, yolo_y, yolo_w, yolo_h])
             self.insect_tracks[insect_position][3].append(insect_record)
             self.active_tracks.append(_insect_num)
             self.missing_counts[_insect_num] = 0
@@ -635,6 +642,8 @@ class Recorder(VideoWriter):
             _species = int(detection[4])
             _flower = self._flower_id_at_position(_x, _y)
             _area = int(detection[3]) if len(detection) > 3 else None
+            box_w = float(detection[6]) if len(detection) > 6 else None
+            box_h = float(detection[7]) if len(detection) > 7 else None
             insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
             if self.track_sources.get(_insect_num) == "fgbg" and _insect_num not in self.dl_confirmed_tracks:
                 self.insect_tracks[insect_position][2] = self.tracking_insects[_species]
@@ -655,7 +664,10 @@ class Recorder(VideoWriter):
 
             recorded_info.append([_insect_num, _x, _y,])
             insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
+            yolo_x, yolo_y, yolo_w, yolo_h = self._yolo_bbox_from_detection(_x, _y, box_w, box_h)
             insect_record = [mapped_frame_num, _x, _y, _flower, _area, "dl", float(detection[5])]
+            if self.record_yolo_bbox:
+                insect_record.extend([yolo_x, yolo_y, yolo_w, yolo_h])
             self.insect_tracks[insect_position][3].append(insect_record)
             self.active_tracks.append(_insect_num)
             self.missing_counts[_insect_num] = 0
@@ -696,6 +708,8 @@ class Recorder(VideoWriter):
                 self.missing_tracks.append(_insect_num)
             
             insect_record = [mapped_frame_num, _x, _y, _flower, None, None, None]
+            if self.record_yolo_bbox:
+                insect_record.extend([None, None, None, None])
             self.insect_tracks[insect_position][3].append(insect_record)
             self.missing_counts[_insect_num] = self.missing_counts.get(_insect_num, 0) + 1
 
@@ -769,6 +783,18 @@ class Recorder(VideoWriter):
                 return False  # Inside exclude zone
 
         return True
+
+    def _yolo_bbox_from_detection(self, center_x, center_y, box_w, box_h):
+        if not self.record_yolo_bbox:
+            return None, None, None, None
+        if box_w is None or box_h is None or self.width <= 0 or self.height <= 0:
+            return None, None, None, None
+        return (
+            float(center_x) / float(self.width),
+            float(center_y) / float(self.height),
+            float(box_w) / float(self.width),
+            float(box_h) / float(self.height),
+        )
             
     
     def record_new_insect(self, 
@@ -814,7 +840,13 @@ class Recorder(VideoWriter):
                 if len(detection) > 4:
                     conf = float(detection[4])
                 _area = int(detection[2]) if len(detection) > 2 else None
-                insect_record_new = [_insect_num, mapped_frame_num ,_species_name, [[mapped_frame_num, _x, _y, None, _area, source, conf]]]
+                box_w = float(detection[5]) if len(detection) > 5 else None
+                box_h = float(detection[6]) if len(detection) > 6 else None
+                yolo_x, yolo_y, yolo_w, yolo_h = self._yolo_bbox_from_detection(_x, _y, box_w, box_h)
+                record = [mapped_frame_num, _x, _y, None, _area, source, conf]
+                if self.record_yolo_bbox:
+                    record.extend([yolo_x, yolo_y, yolo_w, yolo_h])
+                insect_record_new = [_insect_num, mapped_frame_num ,_species_name, [record]]
                 self.insect_tracks.append(insect_record_new)
                 self.active_tracks.append(_insect_num)
                 self.track_sources[_insect_num] = source
@@ -896,21 +928,44 @@ class Recorder(VideoWriter):
         if detected_positions >= self.min_track_length:
             filename = str(insect_species)+'_'+str(insect_num)
             output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'.csv'
-            insect_track = [record + [None] * (7 - len(record)) if len(record) < 7 else record for record in insect_track]
+            insect_track = [
+                record + [None] * (self.insect_record_length - len(record))
+                if len(record) < self.insect_record_length
+                else record
+                for record in insect_track
+            ]
 
             with open(output_filepath, 'w') as f:
-                f.write('nframe, x, y, flower, insect_area, detection_method, confidence\n')
+                if self.record_yolo_bbox:
+                    f.write('nframe, x, y, flower, insect_area, detection_method, confidence, yolo_x, yolo_y, yolo_w, yolo_h\n')
+                else:
+                    f.write('nframe, x, y, flower, insect_area, detection_method, confidence\n')
                 for record in insect_track:
-                    f.write(f"{record[0]},{record[1]},{record[2]},{record[3]},{record[4]},{record[5]},{record[6]}\n")
+                    if self.record_yolo_bbox:
+                        f.write(
+                            f"{record[0]},{record[1]},{record[2]},{record[3]},{record[4]},{record[5]},{record[6]},"
+                            f"{record[7]},{record[8]},{record[9]},{record[10]}\n"
+                        )
+                    else:
+                        f.write(f"{record[0]},{record[1]},{record[2]},{record[3]},{record[4]},{record[5]},{record[6]}\n")
 
             if self.compressed_video is True:
                 interpolated_output_filepath = os.path.join(self.output_directory, os.path.basename(self.output_directory))+'_'+str(filename)+'-post_processed.csv'
 
                 with open(interpolated_output_filepath, 'w') as f:
                     insect_track = self.process_and_interpolate_track(insect_track)
-                    f.write('nframe, x, y, flower, insect_area, detection_method, confidence\n')
+                    if self.record_yolo_bbox:
+                        f.write('nframe, x, y, flower, insect_area, detection_method, confidence, yolo_x, yolo_y, yolo_w, yolo_h\n')
+                    else:
+                        f.write('nframe, x, y, flower, insect_area, detection_method, confidence\n')
                     for record in insect_track:
-                        f.write(f"{record[0]},{record[1]},{record[2]},{record[3]},{record[4]},{record[5]},{record[6]}\n")
+                        if self.record_yolo_bbox:
+                            f.write(
+                                f"{record[0]},{record[1]},{record[2]},{record[3]},{record[4]},{record[5]},{record[6]},"
+                                f"{record[7]},{record[8]},{record[9]},{record[10]}\n"
+                            )
+                        else:
+                            f.write(f"{record[0]},{record[1]},{record[2]},{record[3]},{record[4]},{record[5]},{record[6]}\n")
 
             
 
@@ -969,7 +1024,7 @@ class Recorder(VideoWriter):
             if frame in frame_dict:
                 interpolated_data.append([frame] + frame_dict[frame])
             else:
-                interpolated_data.append([frame, None, None, None, None, None, None])
+                interpolated_data.append([frame] + [None] * (self.insect_record_length - 1))
 
         # Interpolate x and y values only for missing frames (not explicitly None in original data)
         for i in range(len(interpolated_data)):
