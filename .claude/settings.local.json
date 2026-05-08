@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /Users/mrat0010/Documents/GitHub/Polytrack/src/*.py)",
+      "Bash(python3 -m py_compile src/*.py)",
+      "Bash(grep -n \"^import\\\\|^from\" /Users/mrat0010/Documents/GitHub/Polytrack/src/*.py)",
+      "Bash(python -c \":*)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0, ''src''\\); import ast; ast.parse\\(open\\(''src/polytrack_app.py''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''src/polytrack_app.py''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")"
+    ]
+  }
+}

@@ -1,3 +1,27 @@
+"""
+main.py
+=======
+Entry point for Polytrack – an insect tracking and pollination monitoring tool.
+
+Usage
+-----
+    python main.py [--config PATH] [--input-dir PATH] [--output-dir PATH]
+                   [--override-output] [--skip-existing]
+
+Flow
+----
+1. Parse CLI arguments and load the YAML configuration.
+2. Discover all compatible video files in the source directory (or use a
+   single file path directly).
+3. For each video, call ``main()`` which:
+   a. Resolves the output directory.
+   b. Detects the best available compute device (CUDA > MPS > CPU).
+   c. Instantiates InsectTracker, Recorder, FlowerTracker, FlowerRecorder.
+   d. Runs ``TracknRecord.run()`` frame-by-frame until the video ends or
+      the user presses 'q'.
+   e. Saves all in-progress tracks, flower data, and a trajectory plot.
+"""
+
 import os
 import logging
 import time
@@ -18,8 +42,6 @@ import argparse
 
 LOGGER = logging.getLogger()
 
-# LOGGER = logging.getLogger(__name__)
-# LOGGER.setLevel(logging.INFO)
 
 class Config:
     """
@@ -211,6 +233,7 @@ def main(
     total_videos: int | None = None,
     override_output: bool = False,
     skip_existing: bool = False,
+    frame_pipe: str | None = None,
 ):
 
     start = time.time()
@@ -327,7 +350,8 @@ def main(
         flower_config=FLOWER_CONFIG,
         video_resolution = video_resolution,
         framerate = framerate,
-        directory_config=directory_config)
+        directory_config=directory_config,
+        frame_pipe=frame_pipe)
     
     if FLOWER_CONFIG.track:
         track_flowers = FlowerTracker(
@@ -401,13 +425,21 @@ if __name__ == "__main__":
                 help="Override existing output directories without prompting.")
     ap.add_argument("--skip-existing", action="store_true", default=False,
                 help="Skip videos with existing output directories without prompting.")
-    
+    ap.add_argument(
+        "--frame-pipe",
+        dest="frame_pipe",
+        type=str,
+        default=None,
+        help="Write each annotated output frame as a JPEG to this path for UI display.",
+    )
+
     args = ap.parse_args()
     config_directory = args.custom_config
     input_dir = args.input_dir
     output_dir = args.output_dir
     override_output = args.override_output
     skip_existing = args.skip_existing
+    frame_pipe = args.frame_pipe
 
     EventLogger.temp_log('info',f"Using config file: {config_directory}")
 
@@ -467,4 +499,5 @@ if __name__ == "__main__":
             total_videos=total_videos,
             override_output=override_output,
             skip_existing=skip_existing,
+            frame_pipe=frame_pipe,
         )

@@ -1,15 +1,40 @@
+"""
+tracking_methods.py
+===================
+Core tracking algorithms and motion prediction for Polytrack.
+
+This module provides:
+  - ExtendedKalmanFilter  – non-linear Kalman filter (position + velocity state)
+  - KalmanFilter          – standard linear Kalman filter
+  - TrackingMethods       – mixin that bundles prediction, assignment, and
+                            compressed-video frame-mapping utilities
+
+The class hierarchy is deliberately kept flat so that InsectTracker and
+FlowerTracker can compose these capabilities through multiple inheritance
+without carrying heavy per-instance state here.
+"""
+
 import os
 import numpy as np
 import csv
 from scipy.optimize import linear_sum_assignment
-from scipy.linalg import block_diag
 import logging
 
 LOGGER = logging.getLogger()
 
 
-
 class ExtendedKalmanFilter:
+    """
+    Non-linear Extended Kalman Filter for 2-D position tracking.
+
+    State vector: [x, y, vx, vy]
+    Measurement:  [x, y]
+
+    Although the state-transition model used here is linear (constant
+    velocity), the EKF formulation is retained so that a non-linear
+    transition can be substituted without changing the interface.
+    """
+
     def __init__(self, initial_state, initial_covariance, process_noise, observation_noise):
         self.state = initial_state
         self.covariance = initial_covariance
@@ -60,41 +85,66 @@ class ExtendedKalmanFilter:
 
 
 class KalmanFilter:
+    """
+    Standard linear Kalman Filter for 2-D position tracking.
+
+    State vector: [x, y, vx, vy]
+    Measurement:  [x, y]
+    """
+
     def __init__(self, initial_state, initial_covariance, process_noise_covariance, observation_noise_covariance):
         self.state = initial_state
         self.covariance = initial_covariance
         self.process_noise_covariance = process_noise_covariance
         self.observation_noise_covariance = observation_noise_covariance
-    
+
     def predict(self, F):
-        # Predict the next state using the state transition matrix F
+        """Propagate state and covariance forward one time step using transition matrix F."""
         self.state = np.dot(F, self.state)
-        # Predict the next covariance
         self.covariance = np.dot(F, np.dot(self.covariance, F.T)) + self.process_noise_covariance
-    
+
     def update(self, measurement, H):
-        # Kalman gain calculation
-        K = np.dot(self.covariance, np.dot(H.T, np.linalg.inv(np.dot(H, np.dot(self.covariance, H.T)) + self.observation_noise_covariance)))
-        # Update the state estimate
+        """Correct the predicted state with a new measurement via the Kalman gain."""
+        S = np.dot(H, np.dot(self.covariance, H.T)) + self.observation_noise_covariance
+        K = np.dot(self.covariance, np.dot(H.T, np.linalg.inv(S)))
         self.state = self.state + np.dot(K, (measurement - np.dot(H, self.state)))
-        # Update the covariance matrix
         self.covariance = np.dot((np.eye(self.covariance.shape[0]) - np.dot(K, H)), self.covariance)
 
 
 
 class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
+    """
+    Mixin providing prediction and assignment algorithms used by both
+    InsectTracker and FlowerTracker.
 
-    def __init__(self,
-                 prediction_method: str) -> None:
-        
+    Supported prediction methods (set via config):
+      - "ConstantVelocity"  (default) – simple linear extrapolation
+      - "Kalman"            – linear Kalman filter
+      - "ExtendedKalman"    – extended Kalman filter
+
+    Supported assignment methods:
+      - "HungarianMethod"   (default) – optimal linear sum assignment
+      - "ABP"               – greedy association by proximity
+    """
+
+    def __init__(self, prediction_method: str) -> None:
+        # prediction_method arrives as a list from YAML config; take the first entry.
         try:
             self.prediction_method = prediction_method[0]
-        except:
+        except (TypeError, IndexError, AttributeError):
+            # Malformed config — fall back to a safe default rather than crashing.
+            LOGGER.warning(
+                "Could not read prediction_method from config; defaulting to 'ConstantVelocity'."
+            )
             self.prediction_method = "ConstantVelocity"
 
-        LOGGER.info(f"Prediction method: {self.prediction_method}")
+        # actual_nframe tracks the de-compressed frame counter used throughout
+        # the pipeline. It must be initialised here so that map_frame_number()
+        # can safely increment it (self.actual_nframe += 1) before the first
+        # successful frame-number lookup in a compressed video.
+        self.actual_nframe: int = 0
 
-        pass
+        LOGGER.info(f"Prediction method: {self.prediction_method}")
     
     def calculate_distance(self, x: float, y: float, px: float, py: float) -> float:
 
@@ -244,33 +294,74 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
         return self.actual_nframe
     
 
-    def get_compression_details(self,
-                                video_filepath: str,
-                                info_filename: str) -> tuple:
-                
-        if info_filename == '': info_filename = None
+    def get_compression_details(self, video_filepath: str, info_filename: str) -> tuple:
+        """
+        Parse the CSV sidecar that maps compressed-video frame indices to their
+        original (uncompressed) frame numbers.
+
+        Expected CSV columns (no header row is consumed):
+          col 0 – video frame number  (int)
+          col 1 – actual frame number (int)
+          col 2 – full-frame flag     (int, may be empty)
+
+        Args:
+            video_filepath: Path to the video file *or* the directory that
+                            contains the sidecar when info_filename is given.
+            info_filename:  Name of the sidecar CSV.  Pass an empty string or
+                            None to use the default "<video_stem>_video_info.csv"
+                            naming convention.
+
+        Returns:
+            (video_frame_number_list, actual_frame_number_list, full_frame_number_list)
+
+        Raises:
+            FileNotFoundError: If the sidecar CSV cannot be found.
+            ValueError: If the CSV is empty or cannot be parsed.
+        """
+        if not info_filename:
+            info_filename = None
 
         if info_filename is not None:
-            compression_details_file = os.path.join(video_filepath, os.path.splitext(info_filename)[0])
+            compression_details_file = os.path.join(
+                video_filepath, os.path.splitext(info_filename)[0]
+            )
         else:
-            compression_details_file = os.path.splitext(video_filepath)[0] +'_video_info.csv'
+            compression_details_file = os.path.splitext(video_filepath)[0] + "_video_info.csv"
 
+        if not os.path.isfile(compression_details_file):
+            raise FileNotFoundError(
+                f"Compression sidecar not found: '{compression_details_file}'. "
+                "Check that source.compression_info points to the correct file, "
+                "or set compressed_video: False in the config."
+            )
 
-        with open(compression_details_file, "r", encoding="utf-8") as csv_file:
-            csv_reader = csv.reader(csv_file)
+        video_frame_number_list: list[int] = []
+        actual_frame_number_list: list[int] = []
+        full_frame_number_list: list[int] = []
 
-            video_frame_number_list = []
-            actual_frame_number_list = []
-            full_frame_number_list = []
+        try:
+            with open(compression_details_file, "r", encoding="utf-8") as csv_file:
+                csv_reader = csv.reader(csv_file)
+                next(csv_reader)  # skip header row
+                for row in csv_reader:
+                    video_frame_number_list.append(int(row[0]))
+                    actual_frame_number_list.append(int(row[1]))
+                    if len(row) > 2 and row[2] != "":
+                        full_frame_number_list.append(int(row[2]))
+        except (IndexError, ValueError) as exc:
+            raise ValueError(
+                f"Failed to parse compression sidecar '{compression_details_file}': {exc}"
+            ) from exc
 
-            next(csv_reader)  # Skip the first row
+        if not video_frame_number_list:
+            raise ValueError(
+                f"Compression sidecar '{compression_details_file}' contains no data rows."
+            )
 
-            for row in csv_reader:
-                video_frame_number_list.append(int(row[0]))
-                actual_frame_number_list.append(int(row[1]))
-                if row[2] != '':
-                    full_frame_number_list.append(int(row[2]))
-
+        LOGGER.info(
+            f"Loaded compression details: {len(video_frame_number_list)} frames, "
+            f"{len(full_frame_number_list)} full frames."
+        )
         return video_frame_number_list, actual_frame_number_list, full_frame_number_list
     
 

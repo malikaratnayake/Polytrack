@@ -1,5 +1,14 @@
+"""
+flower_recorder.py
+==================
+Persists flower tracks and monitors insect-flower visitations.
+
+FlowerRecorder stores per-flower position histories, writes them to CSV,
+computes flower-coverage statistics for the output directory, and records
+which insects visited which flowers on each frame.
+"""
+
 import numpy as np
-import pandas as pd
 import os
 import logging
 import math
@@ -8,6 +17,26 @@ LOGGER = logging.getLogger()
 
 
 class FlowerRecorder():
+    """
+    Records flower detections and computes visitation events.
+
+    Flower tracks are stored in ``self.flower_tracks`` as a list of
+    ``[flower_id, species, [[frame, cx, cy, radius], ...]]`` entries.
+    """
+
+    def _find_flower_position(self, flower_id: int) -> int | None:
+        """
+        Return the list index of *flower_id* inside ``self.flower_tracks``,
+        or ``None`` with a warning if the flower is not found.
+
+        This helper replaces the unsafe ``int(next(..., None))`` pattern
+        which raises ``TypeError`` when the flower ID is not present.
+        """
+        for i, record in enumerate(self.flower_tracks):
+            if record[0] == flower_id:
+                return i
+        LOGGER.warning(f"Flower ID {flower_id} not found in flower_tracks.")
+        return None
 
     def __init__(self,
                     config: dict,
@@ -211,9 +240,27 @@ class FlowerRecorder():
             insect_num = int(visit[0])
             flower_num = int(visit[1])
 
-            insect_position = int(next((index for index, record in enumerate(insect_tracks) if record[0] == insect_num), None))
+            # Locate the insect track.
+            insect_position = next(
+                (i for i, rec in enumerate(insect_tracks) if rec[0] == insect_num), None
+            )
+            if insect_position is None:
+                LOGGER.warning(f"record_flower_visitations: insect {insect_num} not found.")
+                continue
+
             insect_track_record = insect_tracks[insect_position][3]
-            associated_detection_position = int(next((index for index, record in enumerate(insect_track_record) if record[0] == mapped_frame_num), None))
+
+            # Locate the frame record within that track.
+            associated_detection_position = next(
+                (i for i, rec in enumerate(insect_track_record) if rec[0] == mapped_frame_num), None
+            )
+            if associated_detection_position is None:
+                LOGGER.warning(
+                    f"record_flower_visitations: frame {mapped_frame_num} not found "
+                    f"in track for insect {insect_num}."
+                )
+                continue
+
             insect_tracks[insect_position][3][associated_detection_position][3] = flower_num
 
         return None
@@ -237,12 +284,14 @@ class FlowerRecorder():
                              new_flower_detections: np.ndarray) -> np.ndarray:
 
         for detection in associated_flower_detections:
-            _flower_num = int((detection[0]))
-            _cx = int((detection[1]))
-            _cy = int((detection[2]))
-            _radius = int((detection[3]))
+            _flower_num = int(detection[0])
+            _cx = int(detection[1])
+            _cy = int(detection[2])
+            _radius = int(detection[3])
 
-            flower_position = int(next((index for index, record in enumerate(self.flower_tracks) if record[0] == _flower_num), None))
+            flower_position = self._find_flower_position(_flower_num)
+            if flower_position is None:
+                continue  # flower was never initialised; skip gracefully
             flower_record = [mapped_frame_num, _cx, _cy, _radius]
             self.flower_tracks[flower_position][2].append(flower_record)
             

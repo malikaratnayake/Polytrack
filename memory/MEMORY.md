@@ -1,0 +1,2 @@
+- [Polytrack codebase overview](project_polytrack.md) — Architecture, key classes, detection pipeline, data structures for Polytrack v5.0
+- [Polytrack refactor (March 2025)](feedback_polytrack_refactor.md) — Bugs fixed and patterns established in the March 2025 reliability refactor

@@ -1,12 +1,42 @@
+"""
+flower_tracker.py
+=================
+Flower detection and frame-to-frame tracking for Polytrack.
+
+Classes
+-------
+DL_Flower_Detector
+    Wraps a YOLOv8 model to detect flower bounding boxes and convert them
+    to circle representations (centre + radius) for compact tracking.
+
+FlowerTracker
+    Combines DL_Flower_Detector with TrackingMethods to associate detected
+    flowers across frames using the Hungarian algorithm.
+"""
+
 import numpy as np
 from ultralytics import YOLO
 import math
 from tracking_methods import TrackingMethods
 import logging
+
 LOGGER = logging.getLogger()
+
+# Maximum pixel distance between a flower detection and its nearest prediction
+# before the detection is treated as a new flower rather than an existing one.
+# This is kept as a module-level constant so it is easy to locate; it may be
+# made configurable via the YAML config in a future version.
+_FLOWER_MATCH_DISTANCE_PX: int = 10
 
 
 class DL_Flower_Detector():
+    """
+    YOLOv8-based detector that returns flower positions as (cx, cy, radius).
+
+    After raw YOLO inference, overlapping bounding boxes are merged and each
+    merged box is converted to a minimum-enclosing circle so that downstream
+    tracking only needs to deal with a single scalar radius per flower.
+    """
 
     def __init__(self,
                 flower_detector: str,
@@ -184,8 +214,20 @@ class FlowerTracker(DL_Flower_Detector, TrackingMethods):
     def process_flower_detections(self,
                             detections: np.array,
                             predictions: np.array) -> tuple:
-          
-        max_interframe_travel_distance = 10
+        """
+        Associate raw flower detections with existing predictions.
+
+        Detections within ``_FLOWER_MATCH_DISTANCE_PX`` pixels of a prediction
+        are considered matches; the rest are treated as new flowers.
+
+        Args:
+            detections:  Shape (N, 5) – [cx, cy, radius, class, confidence].
+            predictions: Shape (M, 5) – [flower_id, cx, cy, cx_prev, cy_prev].
+
+        Returns:
+            (associated_flower_detections, missing_flowers, new_flower_detections)
+        """
+        max_interframe_travel_distance = _FLOWER_MATCH_DISTANCE_PX
         unassociated_array_length = 5
 
               

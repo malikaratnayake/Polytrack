@@ -1,9 +1,30 @@
+"""
+insect_tracker.py
+=================
+Insect detection and multi-frame tracking for Polytrack.
+
+Classes
+-------
+DL_Detector
+    Runs YOLOv8 inference, applies per-class confidence thresholds, and
+    optionally verifies new detections with a secondary model.
+
+FGBG_Detector
+    Foreground/background segmentation (MOG2 or frame difference) that
+    produces fast blob candidates without a deep-learning model.
+
+InsectTracker
+    Inherits from both DL_Detector and FGBG_Detector.  On each frame it
+    combines both detection sources, associates detections with existing
+    tracks via a configurable assignment algorithm, and returns structured
+    arrays ready for the Recorder.
+"""
+
 import cv2
 import numpy as np
 from ultralytics import YOLO
 import logging
 from tracking_methods import TrackingMethods
-import math
 
 LOGGER = logging.getLogger()
 
@@ -336,7 +357,7 @@ class FGBG_Detector(TrackingMethods):
                             frame: np.ndarray) -> np.ndarray:
         
         for detection in detections:
-            x, y, area = detection[:3]
+            x, y = detection[0], detection[1]
             x, y = int(x), int(y)  # Ensure x and y are integers
             
             # Extract insect image with bounds checking
@@ -450,9 +471,24 @@ class InsectTracker(DL_Detector, FGBG_Detector):
 
         try:
             self.assignment_method = config.assignment_method[0]
-        except:
+        except (TypeError, IndexError, AttributeError):
+            # Malformed or missing config entry — fall back to a safe default.
+            LOGGER.warning(
+                "Could not read assignment_method from config; defaulting to 'HungarianMethod'."
+            )
             self.assignment_method = "HungarianMethod"
         LOGGER.info(f"Assignment method: {self.assignment_method}")
+
+        # Ensure compressed-video frame-number lists are always defined.
+        # FGBG_Detector.__init__ only populates these when both fgbg_detector=True
+        # AND compressed_video=True.  Without this guard, run_tracker() would raise
+        # AttributeError when using DL-only mode on a compressed video.
+        if not hasattr(self, "video_frame_num"):
+            self.video_frame_num: list[int] = []
+        if not hasattr(self, "actual_frame_num"):
+            self.actual_frame_num: list[int] = []
+        if not hasattr(self, "full_frame_num"):
+            self.full_frame_num: list[int] = []
 
         return None
     

@@ -1,3 +1,23 @@
+"""
+insect_recorder.py
+==================
+Track persistence, data recording, and video visualisation for Polytrack.
+
+Classes
+-------
+VideoWriter
+    Manages an OpenCV VideoWriter, the trajectory overlay frame, and all
+    visualisation helpers (flower shading, track colours, boundary edges).
+
+Recorder
+    Inherits from VideoWriter.  Accepts per-frame detection arrays from
+    InsectTracker and writes:
+      - Per-insect CSV files (position, method, confidence per frame)
+      - A verification-info CSV with per-track summary statistics
+      - A track-trajectory plot (JPEG)
+      - Optional per-insect snapshot images
+"""
+
 import csv
 import cv2
 import numpy as np
@@ -29,11 +49,13 @@ class VideoWriter:
                  spatial_filtering,
                  flower_display_shape: str = "Circle",
                  show_flower_border_extension: bool = True,
-                 mark_insects_on_flower: bool = True) -> None:
-        
+                 mark_insects_on_flower: bool = True,
+                 frame_pipe: str | None = None) -> None:
+
         self.width, self.height, self.fps = input_video_dimensions[0], input_video_dimensions[1], framerate
-        self.show_video_output = show_video_output 
+        self.show_video_output = show_video_output
         self.save_video_output = save_video_output
+        self.frame_pipe = frame_pipe   # path to write each annotated frame as JPEG for UI display
         self.video_codec = video_codec
         self.output_directory = output_directory
         self.video_source = video_source
@@ -208,8 +230,15 @@ class VideoWriter:
 
 
 
+        display_frame = cv2.resize(output_frame, (self.output_video_dimensions[0], self.output_video_dimensions[1]))
+
         if self.show_video_output:
-            cv2.imshow("PolyTrack - Insect Tracks only", cv2.resize(output_frame, (self.output_video_dimensions[0], self.output_video_dimensions[1])))
+            cv2.imshow("PolyTrack - Insect Tracks only", display_frame)
+
+        if self.frame_pipe:
+            _tmp = self.frame_pipe + ".tmp"
+            cv2.imwrite(_tmp, display_frame)
+            os.replace(_tmp, self.frame_pipe)  # atomic rename — prevents partial-read flashes
 
         if self.save_video_output:
             self.output_video.write(output_frame)
@@ -360,7 +389,8 @@ class Recorder(VideoWriter):
                  flower_config: dict,
                  video_resolution: list[int],
                  framerate: int,
-                 directory_config: dict) -> None:
+                 directory_config: dict,
+                 frame_pipe: str | None = None) -> None:
         flower_display_shape = getattr(flower_config, "output_shape", "Circle") if flower_config is not None else "Circle"
         show_flower_border_extension = getattr(flower_config, "show_border_extension", True) if flower_config is not None else True
         mark_insects_on_flower = getattr(flower_config, "mark_insects_on_flower", True) if flower_config is not None else True
@@ -379,7 +409,8 @@ class Recorder(VideoWriter):
                             spatial_filtering = insect_config.spatial_filtering,
                             flower_display_shape = flower_display_shape,
                             show_flower_border_extension = show_flower_border_extension,
-                            mark_insects_on_flower = mark_insects_on_flower) 
+                            mark_insects_on_flower = mark_insects_on_flower,
+                            frame_pipe = frame_pipe)
         
         self.insect_tracks = []
         self.edge_pixels = insect_config.edge_analysis.edge_pixels
@@ -582,8 +613,9 @@ class Recorder(VideoWriter):
             _area = int(detection[3]) if len(detection) > 3 else None
             box_w = float(detection[6]) if len(detection) > 6 else None
             box_h = float(detection[7]) if len(detection) > 7 else None
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
-
+            insect_position = self._find_track_position(_insect_num)
+            if insect_position is None:
+                continue  # track already saved/removed; skip silently
 
             if self.compressed_video:
                 if self.continious_edge_analysis and self.check_compressed_video_jump(mapped_frame_num, _insect_num):
@@ -609,9 +641,11 @@ class Recorder(VideoWriter):
     def check_compressed_video_jump(self,
                                      mapped_frame_num: int,
                                      insect_num: int) -> bool:
-        
+
         if self.check_time_jump(mapped_frame_num):
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == insect_num), None))
+            insect_position = self._find_track_position(insect_num)
+            if insect_position is None:
+                return False
             insect_detections = self.insect_tracks[insect_position][3]
             last_detected_frame_position = self.find_last_detected_frame(insect_detections)
             _, last_x, last_y, _ = insect_detections[last_detected_frame_position][:4]
@@ -644,7 +678,9 @@ class Recorder(VideoWriter):
             _area = int(detection[3]) if len(detection) > 3 else None
             box_w = float(detection[6]) if len(detection) > 6 else None
             box_h = float(detection[7]) if len(detection) > 7 else None
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
+            insect_position = self._find_track_position(_insect_num)
+            if insect_position is None:
+                continue  # track already saved/removed; skip silently
             if self.track_sources.get(_insect_num) == "fgbg" and _insect_num not in self.dl_confirmed_tracks:
                 self.insect_tracks[insect_position][2] = self.tracking_insects[_species]
                 self.dl_confirmed_tracks.add(_insect_num)
@@ -660,10 +696,11 @@ class Recorder(VideoWriter):
                     if not self.evaluate_missing_insect(_insect_num, mapped_frame_num, insect_position):
                         continue
 
-
-
             recorded_info.append([_insect_num, _x, _y,])
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
+            # Re-fetch position in case the list was modified by evaluate_missing_insect.
+            insect_position = self._find_track_position(_insect_num)
+            if insect_position is None:
+                continue
             yolo_x, yolo_y, yolo_w, yolo_h = self._yolo_bbox_from_detection(_x, _y, box_w, box_h)
             insect_record = [mapped_frame_num, _x, _y, _flower, _area, "dl", float(detection[5])]
             if self.record_yolo_bbox:
@@ -698,16 +735,21 @@ class Recorder(VideoWriter):
         
         for insect in missing_insects:
             _insect_num = int(insect)
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect_num), None))
-            _x = None
-            _y = None           
-            _flower = None
-            # _model = np.nan
-            acive_but_missing = self.evaluate_missing_insect(_insect_num, mapped_frame_num, insect_position)
-            if acive_but_missing is True:
+            insect_position = self._find_track_position(_insect_num)
+            if insect_position is None:
+                continue  # already saved/removed; nothing to update
+
+            active_but_missing = self.evaluate_missing_insect(_insect_num, mapped_frame_num, insect_position)
+            if active_but_missing:
                 self.missing_tracks.append(_insect_num)
-            
-            insect_record = [mapped_frame_num, _x, _y, _flower, None, None, None]
+
+            # Re-check position: evaluate_missing_insect may have called save_track
+            # which removes the record, making the old index stale.
+            insect_position = self._find_track_position(_insect_num)
+            if insect_position is None:
+                continue
+
+            insect_record = [mapped_frame_num, None, None, None, None, None, None]
             if self.record_yolo_bbox:
                 insect_record.extend([None, None, None, None])
             self.insect_tracks[insect_position][3].append(insect_record)
@@ -745,13 +787,41 @@ class Recorder(VideoWriter):
             
         return active_but_missing
     
-    def find_last_detected_frame(self,
-                                 insect_detections: list) -> int:
-        
-        for i in range(len(insect_detections) - 1, -1, -1):  # Iterate backwards over the list
+    def _find_track_position(self, track_id: int) -> int | None:
+        """
+        Return the index of *track_id* inside ``self.insect_tracks``, or
+        ``None`` if the track cannot be found.
+
+        Using this helper instead of the raw ``next(..., None)`` + ``int()``
+        pattern avoids a ``TypeError: int() argument must be a string, a
+        bytes-like object or a real number, not 'NoneType'`` crash whenever
+        a track ID is referenced that has already been saved/removed.
+        """
+        for i, record in enumerate(self.insect_tracks):
+            if record[0] == track_id:
+                return i
+        LOGGER.warning(f"Track ID {track_id} not found in insect_tracks.")
+        return None
+
+    def find_last_detected_frame(self, insect_detections: list) -> int:
+        """
+        Iterate backwards over *insect_detections* and return the index of the
+        last record that has valid (non-``None``) x and y coordinates.
+
+        If no valid record is found (e.g. every frame in the track is a
+        missing-frame placeholder), index 0 is returned as a safe fallback and
+        a warning is logged.
+        """
+        for i in range(len(insect_detections) - 1, -1, -1):
             nested_list = insect_detections[i]
             if len(nested_list) >= 3 and nested_list[1] is not None and nested_list[2] is not None:
-                return i  # Return the index of the last valid nested list
+                return i
+        # Fallback: no valid frame found — return 0 to avoid a None-index crash.
+        LOGGER.warning(
+            "find_last_detected_frame: no record with valid (x, y) found; "
+            "falling back to index 0."
+        )
+        return 0
             
     def is_valid_position(self, x, y):
         """
@@ -856,7 +926,7 @@ class Recorder(VideoWriter):
 
     def _is_near_existing_track(self, x: int, y: int) -> bool:
         for insect_id in self.active_tracks:
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == insect_id), None))
+            insect_position = self._find_track_position(insect_id)
             if insect_position is None:
                 continue
             last_record = self.insect_tracks[insect_position][3][-1]
@@ -1192,15 +1262,16 @@ class Recorder(VideoWriter):
 
     
 
-    def get_insect_positions_for_predictions(self, 
-                                             mapped_frame_num: int) -> np.ndarray:
+    def get_insect_positions_for_predictions(self,
+                                             _mapped_frame_num: int) -> np.ndarray:
     
         current_insect_positions = np.empty([0,5])
         insect_positions_for_predictions = current_insect_positions
 
         for insect in self.active_tracks:
-            # insect_position = next((i for i, insect in enumerate(self.insect_tracks) if insect[0] == insect), None)
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == insect), None))
+            insect_position = self._find_track_position(insect)
+            if insect_position is None:
+                continue
 
             if len(self.insect_tracks[insect_position][3]) >= 2:
                 _x0 = self.insect_tracks[insect_position][3][-1][1]
@@ -1220,7 +1291,9 @@ class Recorder(VideoWriter):
             insect_positions_for_predictions = current_insect_positions
 
         for insect in self.missing_tracks:
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == insect), None))
+            insect_position = self._find_track_position(insect)
+            if insect_position is None:
+                continue
             last_detected_frame_position = self.find_last_detected_frame(self.insect_tracks[insect_position][3])
             _, last_x, last_y, _ = self.insect_tracks[insect_position][3][last_detected_frame_position][:4]
 
@@ -1242,7 +1315,9 @@ class Recorder(VideoWriter):
             _tracking_insects = [int(i[0]) for i in predicted_position]
 
         for _insect in _tracking_insects:
-            insect_position = int(next((index for index, record in enumerate(self.insect_tracks) if record[0] == _insect), None))
+            insect_position = self._find_track_position(_insect)
+            if insect_position is None:
+                continue  # already saved earlier in this run
             self.save_track(insect_position)
             LOGGER.info(f'Insect track saved: {_insect}')
 
