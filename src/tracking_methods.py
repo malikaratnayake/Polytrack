@@ -18,6 +18,7 @@ import os
 import numpy as np
 import csv
 from scipy.optimize import linear_sum_assignment
+from scipy.spatial.distance import cdist
 import logging
 
 LOGGER = logging.getLogger()
@@ -190,15 +191,17 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
             list: List of tuples representing assignments (detection_index, prediction_index).
         """
 
-        # Calculate pairwise distances (or costs) between detections and predictions
+        # Calculate pairwise distances (or costs) between detections and predictions.
+        # Vectorized with cdist instead of a Python double-loop; also keeps float
+        # precision (the previous int-typed cost_matrix truncated every distance).
         num_detections = len(detections)
         num_predictions = len(predictions)
-        cost_matrix = np.full((num_detections, num_predictions),0)
+        if num_detections == 0 or num_predictions == 0:
+            return []
 
-        for i in range(num_detections):
-            for j in range(num_predictions):
-                # Calculate Euclidean distance between detection[i] and prediction[j]
-                cost_matrix[i][j] = np.linalg.norm(np.array([detections[i][0],detections[i][1]]) - np.array([predictions[j][1],predictions[j][2]]))
+        det_xy = np.asarray(detections, dtype=float)[:, 0:2]
+        pred_xy = np.asarray(predictions, dtype=float)[:, 1:3]
+        cost_matrix = cdist(det_xy, pred_xy)
 
         # Use the Hungarian algorithm to find the optimal assignments
         detection_indices, prediction_indices = linear_sum_assignment(cost_matrix)
@@ -230,17 +233,13 @@ class TrackingMethods(KalmanFilter, ExtendedKalmanFilter):
         if num_detections == 0 or num_predictions == 0:
             return []
 
-        cost_matrix = np.full((num_detections, num_predictions), np.inf)
-
         LOGGER.debug(f"Number of detections: {num_detections}, Number of predictions: {num_predictions}")
 
-        # Calculate pairwise distances (or costs) between detections and predictions
-        for i in range(num_detections):
-            for j in range(num_predictions):
-                # Calculate Euclidean distance between detection[i] and prediction[j]
-                cost_matrix[i][j] = np.linalg.norm(
-                    np.array([detections[i][0], detections[i][1]]) - np.array([predictions[j][1], predictions[j][2]])
-                )
+        # Calculate pairwise distances (or costs) between detections and predictions.
+        # Vectorized with cdist; unmatched entries are masked back to np.inf below.
+        det_xy = np.asarray(detections, dtype=float)[:, 0:2]
+        pred_xy = np.asarray(predictions, dtype=float)[:, 1:3]
+        cost_matrix = cdist(det_xy, pred_xy)
 
         assignments = []
         unmatched_detections = list(range(num_detections))

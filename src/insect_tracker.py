@@ -107,8 +107,10 @@ class DL_Detector():
                         _results: np.ndarray,
                         fg_detections: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
         
-        _insect_detection = np.zeros(shape=(0,7))
-        _low_conf_detection = np.zeros(shape=(0,7))
+        # Accumulate into Python lists and build arrays once at the end; repeated
+        # np.vstack inside the loop reallocates on every detection (O(n^2)).
+        _insect_rows = []
+        _low_conf_rows = []
         small_candidates = []
         fg_detections = np.asarray(fg_detections) if fg_detections is not None else np.zeros((0, 3))
 
@@ -121,13 +123,15 @@ class DL_Detector():
             box_h = float(abs(result[3] - result[1]))
             area = int(abs((result[0] - result[2])*(result[1] - result[3])))
             if confidence >= self.dl_detection_confidence[insect_class]:
-                _insect_detection = np.vstack([_insect_detection,(mid_x, mid_y, area, insect_class, confidence, box_w, box_h)])
+                _insect_rows.append((mid_x, mid_y, area, insect_class, confidence, box_w, box_h))
             elif confidence >= self.dl_detection_confidence_floor[insect_class]:
-                _low_conf_detection = np.vstack([_low_conf_detection,(mid_x, mid_y, area, insect_class, confidence, box_w, box_h)])
+                _low_conf_rows.append((mid_x, mid_y, area, insect_class, confidence, box_w, box_h))
 
             if area <= self.small_box_area_thresh:
                 small_candidates.append([mid_x, mid_y, area, insect_class, confidence])
 
+        _insect_detection = np.array(_insect_rows, dtype=float) if _insect_rows else np.zeros(shape=(0, 7))
+        _low_conf_detection = np.array(_low_conf_rows, dtype=float) if _low_conf_rows else np.zeros(shape=(0, 7))
         self.prev_small_dl_candidates = np.array(small_candidates) if small_candidates else np.zeros((0, 5))
         return _insect_detection, _low_conf_detection
         
@@ -246,8 +250,9 @@ class FGBG_Detector(TrackingMethods):
                  info_filename:str,
                  prediction_method:str,
                  show_fgbg_frame: bool,
-                 max_fgbg_candidates: int | None = None) -> None:
-        
+                 max_fgbg_candidates: int | None = None,
+                 detect_shadows: bool = True) -> None:
+
         super().__init__(prediction_method = prediction_method)
         self.min_blob_area = min_blob_area
         self.max_blob_area = max_blob_area
@@ -263,7 +268,7 @@ class FGBG_Detector(TrackingMethods):
         self.show_fgbg_frame = show_fgbg_frame
         self.fgbf_model = model[0]
         if self.fgbf_model  == "MOG2":
-            self.mog2_model = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=100, detectShadows=True)
+            self.mog2_model = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=100, detectShadows=detect_shadows)
         else:
             self.prev_frame = None
 
@@ -332,24 +337,26 @@ class FGBG_Detector(TrackingMethods):
     def process_foreground_blobs(self, 
                                  contours: np.ndarray)-> np.ndarray:
         
-        _possible_insects = np.zeros(shape=(0,7))
+        # Accumulate into a Python list and build the array once. Repeated np.vstack
+        # inside the loop reallocates the whole array on every blob (O(n^2)).
+        _rows = []
 
         for c in contours:
             cog_coord, _box_dims, _ = cv2.minAreaRect(c)
             cog_coord = [int(num * self.downscale_factor) for num in cog_coord]
             _box_dims = [int(num * self.downscale_factor) for num in _box_dims]
-        
+
             _area = _box_dims[0] * _box_dims[1]
 
             if (_area > self.min_blob_area) and (_area<self.max_blob_area):
-                _possible_insects = np.vstack([
-                    _possible_insects,
-                    (int(cog_coord[0]), int(cog_coord[1]), int(_area), 0, 0.0, float(_box_dims[0]), float(_box_dims[1])),
-                ])
-            else:
-                pass
-        
-        return _possible_insects
+                _rows.append(
+                    (int(cog_coord[0]), int(cog_coord[1]), int(_area), 0, 0.0, float(_box_dims[0]), float(_box_dims[1]))
+                )
+
+        if not _rows:
+            return np.zeros(shape=(0, 7))
+
+        return np.array(_rows, dtype=float)
     
 
     def verify_detections(self,
@@ -446,7 +453,8 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                                     info_filename = source_config.compression_info,
                                     prediction_method = config.prediction_method,
                                     show_fgbg_frame = config.detector_properties.fgbg_detection.show,
-                                    max_fgbg_candidates = getattr(config.detector_properties.fgbg_detection, "max_fgbg_candidates", None))
+                                    max_fgbg_candidates = getattr(config.detector_properties.fgbg_detection, "max_fgbg_candidates", None),
+                                    detect_shadows = getattr(config.detector_properties.fgbg_detection, "detect_shadows", True))
 
         self.predictions = []
         self.max_interframe_travel = config.jump_distance
@@ -608,10 +616,9 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                     new_insects = []
 
                 if len(dl_missing_insects) > 0 and len(fgbg_associated_detections) > 0:
-                    fg_predictions = np.zeros(shape=(0,3))
-
-                    for pred in np.arange(len(dl_missing_insects)):
-                        fg_predictions = np.vstack([fg_predictions,([row for row in self.predictions if dl_missing_insects[pred] == row[0]])])
+                    missing_set = set(dl_missing_insects)
+                    fg_pred_rows = [row for row in self.predictions if row[0] in missing_set]
+                    fg_predictions = np.array(fg_pred_rows, dtype=float) if fg_pred_rows else np.zeros(shape=(0, 3))
 
                     fg_detections = self.remove_associated_detections(fg_detections, dl_associated_detections)
 
@@ -893,12 +900,13 @@ class InsectTracker(DL_Detector, FGBG_Detector):
                 "missing_after_rescue": missing_debug,
             })
 
-        # Debug Logging (Ensure all logged data is NumPy arrays)
-        LOGGER.debug({
-            "Associated Detections": associated_detections.tolist(),
-            "Missing Detections": missing_detections,
-            "Unassociated Detections": unassociated_detections.tolist() if isinstance(unassociated_detections, np.ndarray) else unassociated_detections
-        })
+        # Debug Logging (guarded: .tolist() is otherwise called every frame even at INFO).
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug({
+                "Associated Detections": associated_detections.tolist(),
+                "Missing Detections": missing_detections,
+                "Unassociated Detections": unassociated_detections.tolist() if isinstance(unassociated_detections, np.ndarray) else unassociated_detections
+            })
 
         # Apply filtering for DL-based detections if enabled
         if self.dl_detector and use_dl:
@@ -968,12 +976,13 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         filtered_detections = np.delete(dl_detections, duplicate_indices, axis=0)
 
         # Debugging logs
-        LOGGER.debug({
-            "Total DL Detections": len(dl_detections),
-            "Total BS Associated Detections": len(bs_associated_detections),
-            "Duplicate Indices": duplicate_indices.tolist(),
-            "Remaining Detections": len(filtered_detections)
-        })
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug({
+                "Total DL Detections": len(dl_detections),
+                "Total BS Associated Detections": len(bs_associated_detections),
+                "Duplicate Indices": duplicate_indices.tolist(),
+                "Remaining Detections": len(filtered_detections)
+            })
 
         return filtered_detections
     
@@ -1007,12 +1016,13 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         filtered_detections = np.delete(dl_detections, duplicate_indices, axis=0)
 
         # Logging for debugging
-        LOGGER.debug({
-            "Total DL Detections": len(dl_detections),
-            "Total BS Detections": len(bs_detections),
-            "Duplicate Indices": duplicate_indices.tolist(),
-            "Remaining Detections": len(filtered_detections)
-        })
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug({
+                "Total DL Detections": len(dl_detections),
+                "Total BS Detections": len(bs_detections),
+                "Duplicate Indices": duplicate_indices.tolist(),
+                "Remaining Detections": len(filtered_detections)
+            })
 
         return filtered_detections
     
@@ -1053,13 +1063,15 @@ class InsectTracker(DL_Detector, FGBG_Detector):
         # Compute IoU
         iou = inter_area / union_area if union_area > 0 else 0
 
-        # Debugging logs
-        LOGGER.debug({
-            "BS Box": bs_bounding_box.tolist(),
-            "DL Box": dl_bounding_box.tolist(),
-            "Intersection Area": inter_area,
-            "Union Area": union_area,
-            "IoU": iou
-        })
+        # Debugging logs (guarded: argument construction is otherwise evaluated
+        # on every call even when DEBUG is disabled — this runs in an O(N*M) loop).
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            LOGGER.debug({
+                "BS Box": bs_bounding_box.tolist(),
+                "DL Box": dl_bounding_box.tolist(),
+                "Intersection Area": inter_area,
+                "Union Area": union_area,
+                "IoU": iou
+            })
 
         return iou

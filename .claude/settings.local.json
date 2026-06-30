@@ -6,7 +6,23 @@
       "Bash(grep -n \"^import\\\\|^from\" /Users/mrat0010/Documents/GitHub/Polytrack/src/*.py)",
       "Bash(python -c \":*)",
       "Bash(python -c \"import sys; sys.path.insert\\(0, ''src''\\); import ast; ast.parse\\(open\\(''src/polytrack_app.py''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\(''src/polytrack_app.py''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''src/polytrack_app.py''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
+      "Bash(python -c \"import yaml; yaml.safe_load\\(open\\('config/custom/config_Costa_Aug2025_fast.yaml'\\)\\); print\\('YAML OK'\\)\")",
+      "Bash(python -m py_compile src/insect_tracker.py src/tracking_methods.py src/main.py)",
+      "Bash(python -m py_compile src/main.py)",
+      "Bash(python src/main.py --help)",
+      "Bash(python -m py_compile src/finetune.py src/finetune_candidates.py)",
+      "Bash(python src/finetune.py --help)",
+      "Bash(python tests/test_finetune.py)",
+      "Bash(python -m py_compile src/polytrack_ui.py)",
+      "Bash(QT_QPA_PLATFORM=offscreen python -c ' *)",
+      "Bash(cd /Users/mrat0010/Documents/GitHub/Polytrack && echo \"--- models ---\"; ls -la /Users/mrat0010/Documents/Costa_Data/Detection_Models/ 2>&1 | head; echo \"--- data dir ---\"; find data -type f 2>/dev/null | head -20; echo \"--- any videos in repo ---\"; find . -path ./.git -prune -o \\\\\\( -name \"*.mp4\" -o -name \"*.avi\" -o -name \"*.h264\" -o -name \"*.MTS\" \\\\\\) -print 2>/dev/null | head)",
+      "Read(//Users/mrat0010/Documents/Costa_Data/Detection_Models/**)",
+      "Bash(rm -rf /tmp/ft_test)",
+      "Bash(timeout 540 python src/finetune.py --base-config config/custom/config_Costa_Aug2025.yaml --samples data/Input/Camera_44_20240605_145706.mp4 --max-frames 40 --workspace /tmp/ft_test --auto coarse_insect --max-candidates 2)",
+      "Bash(python src/finetune.py --base-config config/custom/config_Costa_Aug2025.yaml --samples data/Input/Camera_44_20240605_145706.mp4 --max-frames 40 --workspace /tmp/ft_test --auto coarse_insect --max-candidates 2)",
+      "Read(//private/tmp/ft_test/**)",
+      "Bash(python -c ' *)"
     ]
   }
 }

@@ -236,9 +236,13 @@ class VideoWriter:
             cv2.imshow("PolyTrack - Insect Tracks only", display_frame)
 
         if self.frame_pipe:
-            _tmp = self.frame_pipe + ".tmp"
-            cv2.imwrite(_tmp, display_frame)
-            os.replace(_tmp, self.frame_pipe)  # atomic rename — prevents partial-read flashes
+            pipe_path = Path(self.frame_pipe)
+            suffix = pipe_path.suffix or ".jpg"
+            _tmp = pipe_path.with_name(f"{pipe_path.stem}.tmp{suffix}")
+            if cv2.imwrite(str(_tmp), display_frame):
+                os.replace(_tmp, pipe_path)  # atomic rename — prevents partial-read flashes
+            else:
+                LOGGER.warning("Could not write frame preview to %s", _tmp)
 
         if self.save_video_output:
             self.output_video.write(output_frame)

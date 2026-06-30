@@ -102,6 +102,10 @@ class TracknRecord():
         self.skip_frames = skip_frames
         self.video_index = video_index
         self.total_videos = total_videos
+        # Only poll the GUI (cv2.waitKey) when a display window is actually shown.
+        self.show_video_output = bool(getattr(RecordTracks, "show_video_output", False))
+        # How often (in processed frames) to refresh the console progress line.
+        self.progress_interval = 30
         self.vid = cv2.VideoCapture(self.video_source)
         self.total_frames = int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT)) if self.vid is not None else 0
         LOGGER.info(f"Processing video: {self.video_source}")        
@@ -126,24 +130,27 @@ class TracknRecord():
                     
                     mapped_frame_num = self.TrackInsects.map_frame_number(nframe, self.compressed_video)
                     processed_frames = mapped_frame_num
-                    tracking_count, verified_count, saved_count, saved_verified = self.RecordTracks.get_tracking_stats()
-                    flower_count = len(self.RecordTracks.latest_flower_positions) if hasattr(self.RecordTracks, "latest_flower_positions") else 0
-                    if self.total_frames > 0:
-                        progress_ratio = min(1.0, mapped_frame_num / self.total_frames)
-                        filled = int(bar_len * progress_ratio)
-                        bar = f"[{'#' * filled}{'-' * (bar_len - filled)}] {progress_ratio * 100:5.1f}%"
-                        progress = f"{mapped_frame_num}/{self.total_frames}"
-                    else:
-                        bar = "[------------------------------]  ---.-%"
-                        progress = f"{mapped_frame_num}"
-                    print(
-                        f"\r{Path(self.video_source).name} {bar} | {progress} frames processed | "
-                        f"{tracking_count} active tracks ({verified_count} verified) | "
-                        f"{saved_count} saved tracks ({saved_verified} verified) | "
-                        f"{flower_count} flowers recorded",
-                        end="",
-                        flush=True,
-                    )
+                    # Refreshing the progress line + flushing every frame is surprisingly
+                    # expensive terminal I/O. Throttle it to once every PROGRESS_INTERVAL frames.
+                    if processed_frames % self.progress_interval == 0:
+                        tracking_count, verified_count, saved_count, saved_verified = self.RecordTracks.get_tracking_stats()
+                        flower_count = len(self.RecordTracks.latest_flower_positions) if hasattr(self.RecordTracks, "latest_flower_positions") else 0
+                        if self.total_frames > 0:
+                            progress_ratio = min(1.0, mapped_frame_num / self.total_frames)
+                            filled = int(bar_len * progress_ratio)
+                            bar = f"[{'#' * filled}{'-' * (bar_len - filled)}] {progress_ratio * 100:5.1f}%"
+                            progress = f"{mapped_frame_num}/{self.total_frames}"
+                        else:
+                            bar = "[------------------------------]  ---.-%"
+                            progress = f"{mapped_frame_num}"
+                        print(
+                            f"\r{Path(self.video_source).name} {bar} | {progress} frames processed | "
+                            f"{tracking_count} active tracks ({verified_count} verified) | "
+                            f"{saved_count} saved tracks ({saved_verified} verified) | "
+                            f"{flower_count} flowers recorded",
+                            end="",
+                            flush=True,
+                        )
                     unverified_track_ids = self.RecordTracks.get_unverified_track_ids()
                     fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg, low_conf_associated_detections = self.TrackInsects.run_tracker(frame, nframe, predicted_position, unverified_track_ids)
                     for_predictions, current_insect_positions = self.RecordTracks.record_track(frame, nframe, mapped_frame_num, fgbg_associated_detections, dl_associated_detections, missing_insects, new_insects, new_insects_fgbg, low_conf_associated_detections)
@@ -162,7 +169,10 @@ class TracknRecord():
                         self.RecordFlowers.record_flower_visitations(insect_flower_visits, mapped_frame_num, self.RecordTracks.insect_tracks)
                         
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                # cv2.waitKey forces a >=1ms HighGUI wait on every processed frame.
+                # Only needed to service the display window / 'q' quit key; skip it
+                # entirely in headless batch runs (use Ctrl-C / KeyboardInterrupt instead).
+                if self.show_video_output and (cv2.waitKey(1) & 0xFF == ord('q')):
                     self.RecordTracks.save_inprogress_tracks(predicted_position)
                     if self.RecordFlowers is not None:
                         self.RecordFlowers.save_flower_tracks()
